@@ -12,13 +12,16 @@ type Resume = { plan: (typeof PLANS)[number]; nextIdx: number; done: number };
 export default function TodayPage() {
   const verse = todaysVerse();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [resume, setResume] = useState<Resume[]>([]);
+  const [resumeLoading, setResumeLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
     (async () => {
       if (!user) {
         setResume([]);
+        setResumeLoading(false);
         return;
       }
       const supabase = createClient();
@@ -42,8 +45,9 @@ export default function TodayPage() {
         }
       }
       setResume(items);
+      setResumeLoading(false);
     })();
-  }, [user]);
+  }, [user, authLoading]);
 
   function openReading(book: string, chapter: number) {
     router.push(`/read?book=${encodeURIComponent(book)}&chapter=${chapter}`);
@@ -95,7 +99,11 @@ export default function TodayPage() {
         </div>
       </div>
 
-      {resume.length > 0 ? (
+      {resumeLoading ? (
+        <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>
+          Loading your plans…
+        </p>
+      ) : resume.length > 0 ? (
         <div>
           <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: C.ink }} className="mb-3">
             Pick up where you left off

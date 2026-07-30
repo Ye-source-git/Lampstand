@@ -4,8 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { askClaude, type ChatMessage } from "@/lib/anthropic";
 import { gatherSources } from "@/lib/sources";
 import { COMPANION_SYSTEM } from "@/lib/prompts";
-
-const DAILY_LIMIT = 20;
+import { checkAndIncrementUsage } from "@/lib/usage";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -24,29 +23,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No message provided." }, { status: 400 });
   }
 
-  // Usage cap: increment first via the service-role client (RLS only grants users read access).
   const admin = createAdminClient();
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: usageRow } = await admin
-    .from("ai_usage")
-    .select("count")
-    .eq("user_id", user.id)
-    .eq("day", today)
-    .maybeSingle();
-
-  if (usageRow && usageRow.count >= DAILY_LIMIT) {
+  const withinLimit = await checkAndIncrementUsage(admin, user.id);
+  if (!withinLimit) {
     return NextResponse.json(
       { error: "You’ve reached today’s question limit. Please try again tomorrow." },
       { status: 429 }
     );
   }
-
-  await admin
-    .from("ai_usage")
-    .upsert(
-      { user_id: user.id, day: today, count: (usageRow?.count ?? 0) + 1 },
-      { onConflict: "user_id,day" }
-    );
 
   try {
     const history = messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }));

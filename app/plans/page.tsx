@@ -60,7 +60,13 @@ export default function PlansPage() {
     setProgress({ ...progress, [planId]: done });
   }
 
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>
+        Loading your plans…
+      </p>
+    );
+  }
 
   if (openPlanId) {
     const plan = PLANS.find((p) => p.id === openPlanId)!;

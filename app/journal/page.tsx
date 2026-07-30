@@ -91,7 +91,13 @@ export default function JournalPage() {
     );
   }
 
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>
+        Loading your journal…
+      </p>
+    );
+  }
 
   return (
     <div>
