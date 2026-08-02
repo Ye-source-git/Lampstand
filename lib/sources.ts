@@ -12,6 +12,10 @@ const BOOK_PATTERN = new RegExp(
   "i"
 );
 
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Server-side grounding pipeline: mirrors the prototype's gatherSources, but reads
 // scripture + reference tables from Supabase instead of fetching bible-api.com.
 export async function gatherSources(
@@ -78,17 +82,26 @@ export async function gatherSources(
     }
   }
 
-  // Glossary terms mentioned in the question
-  const q = question.toLowerCase();
+  // Glossary terms mentioned in the question or recent conversation. Matched on word
+  // boundaries (not naive substring) so e.g. "using" doesn't match the term "sin".
   const { data: glossaryRows } = await supabase.from("glossary").select("term, entry");
   if (glossaryRows) {
     for (const { term, entry } of glossaryRows) {
-      if (q.includes(term) && n < 6) {
+      if (n >= 6) break;
+      const termPattern = new RegExp(`\\b${escapeRegex(term)}\\b`, "i");
+      if (termPattern.test(recentText)) {
         add("Glossary — Lampstand study notes", entry.split(":")[0], entry);
       }
     }
   }
 
-  const sourceBlock = blocks.length ? `SOURCES:\n${blocks.join("\n\n")}` : "";
+  // Being honest about what wasn't found matters as much as citing what was: the
+  // Companion's own instructions ask it to flag general-knowledge answers plainly
+  // rather than imply they came from retrieved sources, but it can only do that if
+  // it's told there was nothing to retrieve.
+  const sourceBlock = blocks.length
+    ? `SOURCES:\n${blocks.join("\n\n")}`
+    : "NO SOURCES: nothing in Lampstand's scripture text, study notes, cross-references, or glossary matched this question (it likely isn't a direct passage or study-term lookup). Answer from your general knowledge if you can, but say so plainly — per your instructions, don't imply an answer is grounded in retrieved sources when it isn't.";
+
   return { sources, sourceBlock };
 }

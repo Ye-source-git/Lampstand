@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { askClaude, type ChatMessage } from "@/lib/anthropic";
 import { gatherSources } from "@/lib/sources";
 import { COMPANION_SYSTEM } from "@/lib/prompts";
-import { checkAndIncrementUsage } from "@/lib/usage";
+import { checkAndIncrementUsage, DAILY_AI_LIMIT, DAILY_AI_LIMIT_ANONYMOUS } from "@/lib/usage";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -24,12 +24,13 @@ export async function POST(req: Request) {
   }
 
   const admin = createAdminClient();
-  const withinLimit = await checkAndIncrementUsage(admin, user.id);
+  const limit = user.is_anonymous ? DAILY_AI_LIMIT_ANONYMOUS : DAILY_AI_LIMIT;
+  const withinLimit = await checkAndIncrementUsage(admin, user.id, limit);
   if (!withinLimit) {
-    return NextResponse.json(
-      { error: "You’ve reached today’s question limit. Please try again tomorrow." },
-      { status: 429 }
-    );
+    const message = user.is_anonymous
+      ? "You’ve reached today’s question limit for trying the Companion without an account. Sign in to get a higher daily limit."
+      : "You’ve reached today’s question limit. Please try again tomorrow.";
+    return NextResponse.json({ error: message }, { status: 429 });
   }
 
   try {

@@ -22,13 +22,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    (async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        setUser(data.user);
+      } else {
+        // No session at all — sample the app anonymously rather than gate it behind
+        // sign-in. If anonymous sign-ins aren't enabled on the Supabase project, this
+        // fails harmlessly and the app falls back to its normal signed-out state.
+        const { data: anon, error } = await supabase.auth.signInAnonymously();
+        if (!error) setUser(anon.user);
+      }
       setLoading(false);
-    });
+    })();
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -36,6 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    // Drop back into a fresh anonymous session rather than a locked-out state —
+    // signing out of a real account shouldn't remove access to the app itself.
+    await supabase.auth.signInAnonymously().catch(() => {});
   }
 
   return (

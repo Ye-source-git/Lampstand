@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 
 export default function LoginPage() {
   const { user } = useAuth();
+  const isAnonymous = user?.is_anonymous ?? false;
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -18,10 +19,18 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-    });
+    // An anonymous session gets *upgraded* in place (same user_id, so existing
+    // highlights/journal/plan progress carry over) rather than starting a fresh
+    // sign-in, which would otherwise leave that data behind under the old identity.
+    const { error } = isAnonymous
+      ? await supabase.auth.updateUser(
+          { email: email.trim() },
+          { emailRedirectTo: `${window.location.origin}/auth/callback` }
+        )
+      : await supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        });
     setBusy(false);
     if (error) setError(error.message);
     else setSent(true);
@@ -29,13 +38,15 @@ export default function LoginPage() {
 
   async function signInWithGoogle() {
     const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    });
+    const options = { redirectTo: `${window.location.origin}/auth/callback` };
+    if (isAnonymous) {
+      await supabase.auth.linkIdentity({ provider: "google", options });
+    } else {
+      await supabase.auth.signInWithOAuth({ provider: "google", options });
+    }
   }
 
-  if (user) {
+  if (user && !isAnonymous) {
     return (
       <div className="rounded-2xl px-6 py-8 text-center" style={{ background: C.card, border: `1px solid ${C.border}` }}>
         <p style={{ fontFamily: "'Lora', serif", color: C.ink }}>You’re signed in as {user.email}.</p>
@@ -46,15 +57,19 @@ export default function LoginPage() {
   return (
     <div className="max-w-sm mx-auto">
       <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 26, color: C.ink }} className="mb-2">
-        Welcome back.
+        {isAnonymous ? "Save your progress." : "Welcome back."}
       </h2>
       <p className="text-sm mb-6" style={{ color: C.inkSoft, fontFamily: "'Albert Sans', sans-serif" }}>
-        Sign in to save highlights, notes, plan progress, and use the Companion and Study Guide.
+        {isAnonymous
+          ? "You can already use Lampstand fully without an account. Add an email or Google account to keep your highlights, notes, and progress if you switch devices or clear your browser."
+          : "Sign in to keep your highlights, notes, and progress across devices."}
       </p>
 
       {sent ? (
         <p className="text-sm" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
-          Check your email for a sign-in link.
+          {isAnonymous
+            ? "Check your email for a confirmation link to finish saving your account."
+            : "Check your email for a sign-in link."}
         </p>
       ) : (
         <>
@@ -71,7 +86,7 @@ export default function LoginPage() {
             style={{ fontFamily: "'Albert Sans', sans-serif", background: C.white, border: `1px solid ${C.border}`, color: C.ink }}
           />
           <GoldButton onClick={sendMagicLink} disabled={busy || !email.trim()}>
-            {busy ? "Sending…" : "Send magic link"}
+            {busy ? "Sending…" : isAnonymous ? "Save with email" : "Send magic link"}
           </GoldButton>
 
           {error && <p className="mt-3 text-sm" style={{ color: "#8A3B2E", fontFamily: "'Albert Sans', sans-serif" }}>{error}</p>}

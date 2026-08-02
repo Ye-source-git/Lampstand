@@ -34,7 +34,7 @@ export function Nav() {
           </p>
         </div>
         <div className="pt-1 flex-shrink-0">
-          {!loading && (user ? (
+          {!loading && (user && !user.is_anonymous ? (
             <button
               onClick={() => signOut()}
               className="text-xs font-semibold focus:outline-none"
@@ -48,13 +48,13 @@ export function Nav() {
               className="text-xs font-semibold focus:outline-none"
               style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
             >
-              Sign in
+              {user?.is_anonymous ? "Save your progress" : "Sign in"}
             </Link>
           ))}
         </div>
       </header>
 
-      <nav className="px-5 max-w-3xl mx-auto flex gap-1 border-b overflow-x-auto" style={{ borderColor: C.border }}>
+      <nav className="px-5 max-w-3xl mx-auto flex flex-wrap gap-x-1 border-b" style={{ borderColor: C.border }}>
         {LINKS.map((l) => (
           <Link
             key={l.href}
