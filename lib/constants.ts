@@ -1,21 +1,32 @@
 // ————— Palette & type (Lamplit reading-room) —————
+// Values are CSS custom properties (defined for light/dark in app/globals.css) rather
+// than literal hex, so every component that reads C.* is theme-aware automatically.
 export const C = {
-  paper: "#EFF1EA",
-  card: "#F7F8F3",
-  ink: "#22301F",
-  inkSoft: "#4A5843",
-  gold: "#A67C2E",
-  goldSoft: "#E9DFC8",
-  deep: "#2E4230",
-  border: "#D8DACB",
-  white: "#FDFDFB",
+  paper: "var(--paper)",
+  card: "var(--card)",
+  ink: "var(--ink)",
+  inkSoft: "var(--ink-soft)",
+  gold: "var(--gold)",
+  goldSoft: "var(--gold-soft)",
+  deep: "var(--deep)",
+  border: "var(--border)",
+  white: "var(--surface)",
 } as const;
 
 export const HIGHLIGHTS: Record<string, string> = {
-  gold: "#F0E3BD",
-  green: "#DCE8D4",
-  rose: "#F0DBD6",
+  gold: "var(--highlight-gold)",
+  green: "var(--highlight-green)",
+  rose: "var(--highlight-rose)",
 };
+
+// Fixed brand colors for contexts that must render consistently regardless of the
+// viewer's theme (e.g. exported/shared verse images) — never swap these for C.*.
+export const BRAND = {
+  deep: "#2E4230",
+  goldSoft: "#E9DFC8",
+  white: "#FDFDFB",
+  gold: "#A67C2E",
+} as const;
 
 export const FONTS_URL =
   "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Lora:ital,wght@0,400;0,500;1,400&family=Albert+Sans:wght@400;500;600&display=swap";

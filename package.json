@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "import:verses": "tsx scripts/import-verses.ts",
-    "seed:reference": "tsx scripts/seed-reference.ts"
+    "seed:reference": "tsx scripts/seed-reference.ts",
+    "import:audio": "tsx scripts/import-audio.ts",
+    "import:commentary": "tsx scripts/import-commentary.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

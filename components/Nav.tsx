@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { C } from "@/lib/constants";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const LINKS = [
   { href: "/", label: "Today" },
   { href: "/read", label: "Read" },
+  { href: "/search", label: "Search" },
   { href: "/plans", label: "Plans" },
   { href: "/companion", label: "Companion" },
   { href: "/guide", label: "Study Guide" },
@@ -33,7 +35,8 @@ export function Nav() {
             Scripture, open to everyone — whatever your tradition, wherever you’re starting.
           </p>
         </div>
-        <div className="pt-1 flex-shrink-0">
+        <div className="pt-1 flex-shrink-0 flex items-center gap-4">
+          <ThemeToggle />
           {!loading && (user && !user.is_anonymous ? (
             <button
               onClick={() => signOut()}

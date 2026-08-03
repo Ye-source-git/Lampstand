@@ -1,5 +1,73 @@
 @import "tailwindcss";
 
+:root {
+  --paper: #EFF1EA;
+  --card: #F7F8F3;
+  --ink: #22301F;
+  --ink-soft: #4A5843;
+  --gold: #A67C2E;
+  --gold-soft: #E9DFC8;
+  --deep: #2E4230;
+  --border: #D8DACB;
+  --surface: #FDFDFB;
+  --highlight-gold: #F0E3BD;
+  --highlight-green: #DCE8D4;
+  --highlight-rose: #F0DBD6;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1B211A;
+    --card: #232B1E;
+    --ink: #ECEDE3;
+    --ink-soft: #A6AE99;
+    --gold: #D3AC5E;
+    --gold-soft: #332B16;
+    --deep: #34492F;
+    --border: #3A4133;
+    --surface: #2A3223;
+    --highlight-gold: #4A3F22;
+    --highlight-green: #2C3B26;
+    --highlight-rose: #3D2C2C;
+    color-scheme: dark;
+  }
+}
+
+/* Manual overrides win over the system preference either direction. */
+:root[data-theme="dark"] {
+  --paper: #1B211A;
+  --card: #232B1E;
+  --ink: #ECEDE3;
+  --ink-soft: #A6AE99;
+  --gold: #D3AC5E;
+  --gold-soft: #332B16;
+  --deep: #34492F;
+  --border: #3A4133;
+  --surface: #2A3223;
+  --highlight-gold: #4A3F22;
+  --highlight-green: #2C3B26;
+  --highlight-rose: #3D2C2C;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --paper: #EFF1EA;
+  --card: #F7F8F3;
+  --ink: #22301F;
+  --ink-soft: #4A5843;
+  --gold: #A67C2E;
+  --gold-soft: #E9DFC8;
+  --deep: #2E4230;
+  --border: #D8DACB;
+  --surface: #FDFDFB;
+  --highlight-gold: #F0E3BD;
+  --highlight-green: #DCE8D4;
+  --highlight-rose: #F0DBD6;
+  color-scheme: light;
+}
+
 body {
   font-family: 'Albert Sans', sans-serif;
+  transition: background-color 0.15s ease;
 }

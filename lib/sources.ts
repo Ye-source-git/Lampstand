@@ -12,10 +12,6 @@ const BOOK_PATTERN = new RegExp(
   "i"
 );
 
-function escapeRegex(s: string) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 // Server-side grounding pipeline: mirrors the prototype's gatherSources, but reads
 // scripture + reference tables from Supabase instead of fetching bible-api.com.
 export async function gatherSources(
@@ -67,29 +63,47 @@ export async function gatherSources(
       add("Background — Lampstand study notes", `About the book of ${book}`, noteRow.note);
     }
 
-    const { data: crossRow } = await supabase
-      .from("cross_refs")
-      .select("refs")
-      .eq("book", book)
-      .eq("chapter", chapter)
-      .maybeSingle();
-    if (crossRow?.refs) {
-      add(
-        "Cross-references — classic reference tradition",
-        `Passages connected to ${book} ${chapter}`,
-        crossRow.refs
-      );
+    // Cross-references are verse-level (Treasury of Scripture Knowledge) — only
+    // meaningful when the question names a specific verse, not just a chapter.
+    const verse = match[3] ? Number(match[3]) : null;
+    if (verse) {
+      const { data: crossRow } = await supabase
+        .from("cross_refs")
+        .select("refs")
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", verse)
+        .maybeSingle();
+      if (crossRow?.refs) {
+        add(
+          "Cross-references — Treasury of Scripture Knowledge",
+          `Passages connected to ${book} ${chapter}:${verse}`,
+          crossRow.refs
+        );
+      }
     }
   }
 
-  // Glossary terms mentioned in the question or recent conversation. Matched on word
-  // boundaries (not naive substring) so e.g. "using" doesn't match the term "sin".
-  const { data: glossaryRows } = await supabase.from("glossary").select("term, entry");
-  if (glossaryRows) {
-    for (const { term, entry } of glossaryRows) {
-      if (n >= 6) break;
-      const termPattern = new RegExp(`\\b${escapeRegex(term)}\\b`, "i");
-      if (termPattern.test(recentText)) {
+  // Glossary terms mentioned in the question or recent conversation. The glossary is
+  // large (curated entries plus Easton's Bible Dictionary), so rather than fetching
+  // every row, extract 1-3 word candidate phrases from the text and look them up by
+  // exact match — indexed, and immune to the substring false positives naive
+  // matching would produce (e.g. "using" would never match a term like "sin").
+  const words = recentText.toLowerCase().match(/[a-z']+/g) ?? [];
+  const candidates = new Set<string>();
+  for (let n2 = 1; n2 <= 3; n2++) {
+    for (let i = 0; i + n2 <= words.length; i++) {
+      candidates.add(words.slice(i, i + n2).join(" "));
+    }
+  }
+  if (candidates.size) {
+    const { data: glossaryRows } = await supabase
+      .from("glossary")
+      .select("term, entry")
+      .in("term", [...candidates]);
+    if (glossaryRows) {
+      for (const { entry } of glossaryRows) {
+        if (n >= 6) break;
         add("Glossary — Lampstand study notes", entry.split(":")[0], entry);
       }
     }

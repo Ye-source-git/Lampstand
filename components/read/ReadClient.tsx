@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ALL_BOOKS, C, HIGHLIGHTS, OT, NT, TRANSLATIONS } from "@/lib/constants";
 import { GoldButton, selectStyle } from "@/components/ui";
+import { ShareVerseButton } from "@/components/ShareVerseButton";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 type VerseRow = { verse: number; text: string };
 type Mark = { color: string | null; note: string | null; verse_text: string | null };
+type AudioTrack = { url: string; label: string; chapter_start: number; chapter_end: number };
 
 export function ReadClient() {
   const searchParams = useSearchParams();
@@ -25,6 +27,10 @@ export function ReadClient() {
   const [marks, setMarks] = useState<Record<number, Mark>>({});
   const [noteDraft, setNoteDraft] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
+  const [audioTrack, setAudioTrack] = useState<AudioTrack | null>(null);
+  const [crossRefsOpen, setCrossRefsOpen] = useState(false);
+  const [crossRefs, setCrossRefs] = useState<string | null>(null);
+  const [crossRefsLoading, setCrossRefsLoading] = useState(false);
 
   // Honor a book/chapter passed in the URL (from Today, Plans, or Journal).
   useEffect(() => {
@@ -61,6 +67,44 @@ export function ReadClient() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, chapter, translation]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAudio() {
+      setAudioTrack(null);
+      const { data } = await supabase
+        .from("audio_tracks")
+        .select("url, label, chapter_start, chapter_end")
+        .eq("translation", translation)
+        .eq("book", book)
+        .lte("chapter_start", chapter)
+        .gte("chapter_end", chapter)
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setAudioTrack(data ?? null);
+    }
+    loadAudio();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, chapter, translation]);
+
+  // Jump straight to a specific verse when arriving from Search (or any other link
+  // that names one), e.g. /read?book=John&chapter=3&verse=16.
+  useEffect(() => {
+    if (!verses) return;
+    (() => {
+      const v = Number(searchParams.get("verse"));
+      if (v && verses.some((row) => row.verse === v)) {
+        setSelected(v);
+        requestAnimationFrame(() => {
+          document.getElementById(`verse-${v}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verses]);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +147,28 @@ export function ReadClient() {
     const m = marks[num];
     setNoteDraft(m?.note || "");
     setNoteOpen(Boolean(m?.note));
+    setCrossRefsOpen(false);
+    setCrossRefs(null);
+  }
+
+  async function toggleCrossRefs() {
+    if (crossRefsOpen) {
+      setCrossRefsOpen(false);
+      return;
+    }
+    setCrossRefsOpen(true);
+    if (crossRefs == null && selected != null) {
+      setCrossRefsLoading(true);
+      const { data } = await supabase
+        .from("cross_refs")
+        .select("refs")
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", selected)
+        .maybeSingle();
+      setCrossRefs(data?.refs ?? "");
+      setCrossRefsLoading(false);
+    }
   }
 
   async function setHighlight(color: string) {
@@ -252,10 +318,22 @@ export function ReadClient() {
       <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: 28, color: C.ink }} className="mb-1">
         {book} {chapter}
       </h2>
-      <p className="text-xs mb-6" style={{ color: C.inkSoft, fontFamily: "'Albert Sans', sans-serif" }}>
+      <p className="text-xs mb-4" style={{ color: C.inkSoft, fontFamily: "'Albert Sans', sans-serif" }}>
         {TRANSLATIONS.find(([c]) => c === translation)?.[1]}
         {verses && verses.length > 0 && (user ? " · tap a verse to highlight, note, or ask" : " · sign in to highlight and take notes")}
       </p>
+
+      {audioTrack && (
+        <div className="mb-6">
+          <p className="text-[11px] mb-1.5" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+            Listen · {audioTrack.chapter_start === audioTrack.chapter_end
+              ? `Chapter ${audioTrack.chapter_start}`
+              : `Chapters ${audioTrack.chapter_start}–${audioTrack.chapter_end}`}
+            {" "}(public-domain narration, LibriVox)
+          </p>
+          <audio key={audioTrack.url} controls preload="none" src={audioTrack.url} className="w-full" style={{ height: 36 }} />
+        </div>
+      )}
 
       {loading && (
         <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>
@@ -280,6 +358,7 @@ export function ReadClient() {
             return (
               <p
                 key={v.verse}
+                id={`verse-${v.verse}`}
                 onClick={() => selectVerse(v.verse)}
                 className="cursor-pointer rounded-lg px-3 py-2 transition-colors leading-relaxed"
                 style={{
@@ -307,75 +386,121 @@ export function ReadClient() {
 
       {selected != null && verses && (
         <div className="sticky bottom-3 rounded-2xl px-4 py-4 shadow-lg" style={{ background: C.white, border: `1px solid ${C.border}` }}>
-          {!user ? (
-            <p className="text-sm" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+          <div className="flex flex-wrap items-center gap-3 mb-1">
+            <p className="text-xs font-semibold" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+              {book} {chapter}:{selected}
+            </p>
+            {user && (
+              <div className="flex items-center gap-2">
+                {Object.entries(HIGHLIGHTS).map(([name, hex]) => (
+                  <button
+                    key={name}
+                    onClick={() => setHighlight(name)}
+                    aria-label={`Highlight ${name}`}
+                    className="w-6 h-6 rounded-full focus:outline-none"
+                    style={{
+                      background: hex,
+                      border: currentMark?.color === name ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
+                    }}
+                  />
+                ))}
+                {currentMark?.color && (
+                  <button
+                    onClick={() => setHighlight(currentMark.color!)}
+                    className="text-[11px] focus:outline-none"
+                    style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="flex-1" />
+            {user && (
+              <button
+                onClick={() => setNoteOpen(!noteOpen)}
+                className="text-xs font-semibold focus:outline-none"
+                style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+              >
+                {noteOpen ? "Hide note" : currentMark?.note ? "Edit note" : "＋ Add note"}
+              </button>
+            )}
+            <ShareVerseButton
+              reference={`${book} ${chapter}:${selected}`}
+              text={verses.find((v) => v.verse === selected)?.text ?? ""}
+              translationName={TRANSLATIONS.find(([c]) => c === translation)?.[1] ?? translation}
+              className="text-xs font-semibold focus:outline-none"
+              style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+            >
+              Share
+            </ShareVerseButton>
+            <Link
+              href={`/companion?seed=${encodeURIComponent(
+                `${book} ${chapter}:${selected} — “${verses.find((v) => v.verse === selected)?.text}” — can you help me understand this verse?`
+              )}`}
+              className="text-xs font-semibold focus:outline-none"
+              style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+            >
+              Ask the Companion
+            </Link>
+            <button
+              onClick={toggleCrossRefs}
+              className="text-xs font-semibold focus:outline-none"
+              style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+            >
+              {crossRefsOpen ? "Hide cross-references" : "Cross-references"}
+            </button>
+          </div>
+
+          {crossRefsOpen && (
+            <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: C.paper, border: `1px solid ${C.border}` }}>
+              {crossRefsLoading && (
+                <p className="text-xs italic" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
+                  Looking up connected passages…
+                </p>
+              )}
+              {!crossRefsLoading && crossRefs === "" && (
+                <p className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                  No cross-references found for this verse.
+                </p>
+              )}
+              {!crossRefsLoading && crossRefs && (
+                <>
+                  <p
+                    className="text-[10px] font-semibold mb-1"
+                    style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold, letterSpacing: "0.06em", textTransform: "uppercase" }}
+                  >
+                    Treasury of Scripture Knowledge
+                  </p>
+                  <p className="text-sm leading-relaxed" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
+                    {crossRefs}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {!user && (
+            <p className="text-xs mt-2" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
               <Link href="/login" style={{ color: C.gold, fontWeight: 600 }}>
                 Sign in
               </Link>{" "}
               to highlight verses and save notes.
             </p>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-3 mb-1">
-                <p className="text-xs font-semibold" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
-                  {book} {chapter}:{selected}
-                </p>
-                <div className="flex items-center gap-2">
-                  {Object.entries(HIGHLIGHTS).map(([name, hex]) => (
-                    <button
-                      key={name}
-                      onClick={() => setHighlight(name)}
-                      aria-label={`Highlight ${name}`}
-                      className="w-6 h-6 rounded-full focus:outline-none"
-                      style={{
-                        background: hex,
-                        border: currentMark?.color === name ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
-                      }}
-                    />
-                  ))}
-                  {currentMark?.color && (
-                    <button
-                      onClick={() => setHighlight(currentMark.color!)}
-                      className="text-[11px] focus:outline-none"
-                      style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="flex-1" />
-                <button
-                  onClick={() => setNoteOpen(!noteOpen)}
-                  className="text-xs font-semibold focus:outline-none"
-                  style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
-                >
-                  {noteOpen ? "Hide note" : currentMark?.note ? "Edit note" : "＋ Add note"}
-                </button>
-                <Link
-                  href={`/companion?seed=${encodeURIComponent(
-                    `${book} ${chapter}:${selected} — “${verses.find((v) => v.verse === selected)?.text}” — can you help me understand this verse?`
-                  )}`}
-                  className="text-xs font-semibold focus:outline-none"
-                  style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
-                >
-                  Ask the Companion
-                </Link>
-              </div>
+          )}
 
-              {noteOpen && (
-                <div className="mt-3">
-                  <textarea
-                    value={noteDraft}
-                    onChange={(e) => setNoteDraft(e.target.value)}
-                    placeholder="Your thought on this verse…"
-                    rows={3}
-                    className="w-full rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none leading-relaxed"
-                    style={{ fontFamily: "'Lora', serif", background: C.paper, border: `1px solid ${C.border}`, color: C.ink }}
-                  />
-                  <GoldButton onClick={saveNote}>Save note</GoldButton>
-                </div>
-              )}
-            </>
+          {noteOpen && user && (
+            <div className="mt-3">
+              <textarea
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                placeholder="Your thought on this verse…"
+                rows={3}
+                className="w-full rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none leading-relaxed"
+                style={{ fontFamily: "'Lora', serif", background: C.paper, border: `1px solid ${C.border}`, color: C.ink }}
+              />
+              <GoldButton onClick={saveNote}>Save note</GoldButton>
+            </div>
           )}
         </div>
       )}

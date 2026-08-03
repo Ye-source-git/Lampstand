@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { C, PLANS, todaysVerse } from "@/lib/constants";
+import { BRAND, C, PLANS, todaysVerse } from "@/lib/constants";
 import { GoldButton } from "@/components/ui";
+import { ShareVerseButton } from "@/components/ShareVerseButton";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -72,17 +73,17 @@ export default function TodayPage() {
         {dateStr}
       </p>
 
-      <div className="rounded-3xl px-6 py-8 sm:px-10 sm:py-10 mb-8" style={{ background: C.deep }}>
+      <div className="rounded-3xl px-6 py-8 sm:px-10 sm:py-10 mb-8" style={{ background: BRAND.deep }}>
         <p
           className="text-xs mb-4"
-          style={{ color: C.goldSoft, fontFamily: "'Albert Sans', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}
+          style={{ color: BRAND.goldSoft, fontFamily: "'Albert Sans', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}
         >
           Verse for today
         </p>
-        <p className="leading-relaxed mb-5" style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: C.white }}>
+        <p className="leading-relaxed mb-5" style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: BRAND.white }}>
           “{verse.text}”
         </p>
-        <p className="text-sm mb-6" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.goldSoft }}>
+        <p className="text-sm mb-6" style={{ fontFamily: "'Albert Sans', sans-serif", color: BRAND.goldSoft }}>
           {verse.ref} · World English Bible
         </p>
         <div className="flex flex-wrap gap-2">
@@ -92,10 +93,19 @@ export default function TodayPage() {
               askAbout(`${verse.ref} — “${verse.text}” — can you help me understand this verse and its context?`)
             }
             className="px-4 py-2 rounded-full text-sm font-semibold focus:outline-none"
-            style={{ fontFamily: "'Albert Sans', sans-serif", background: "transparent", border: `1px solid ${C.goldSoft}`, color: C.goldSoft }}
+            style={{ fontFamily: "'Albert Sans', sans-serif", background: "transparent", border: `1px solid ${BRAND.goldSoft}`, color: BRAND.goldSoft }}
           >
             Ask about this verse
           </button>
+          <ShareVerseButton
+            reference={verse.ref}
+            text={verse.text}
+            translationName="World English Bible"
+            className="px-4 py-2 rounded-full text-sm font-semibold focus:outline-none"
+            style={{ fontFamily: "'Albert Sans', sans-serif", background: "transparent", border: `1px solid ${BRAND.goldSoft}`, color: BRAND.goldSoft }}
+          >
+            Share
+          </ShareVerseButton>
         </div>
       </div>
 
