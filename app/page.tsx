@@ -2,13 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BRAND, C, PLANS, todaysVerse } from "@/lib/constants";
+import { BRAND, C, todaysVerse } from "@/lib/constants";
 import { GoldButton } from "@/components/ui";
 import { ShareVerseButton } from "@/components/ShareVerseButton";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 
-type Resume = { plan: (typeof PLANS)[number]; nextIdx: number; done: number };
+type Resume = {
+  planId: string;
+  planTitle: string;
+  totalDays: number;
+  nextDay: { day_index: number; label: string; book: string; chapter: number };
+};
 
 export default function TodayPage() {
   const verse = todaysVerse();
@@ -26,24 +31,42 @@ export default function TodayPage() {
         return;
       }
       const supabase = createClient();
-      const { data } = await supabase
+      const { data: progressRows } = await supabase
         .from("plan_progress")
         .select("plan_id, day_index")
         .eq("user_id", user.id);
 
       const byPlan = new Map<string, Set<number>>();
-      for (const row of data ?? []) {
+      for (const row of progressRows ?? []) {
         if (!byPlan.has(row.plan_id)) byPlan.set(row.plan_id, new Set());
         byPlan.get(row.plan_id)!.add(row.day_index);
       }
 
+      const activePlanIds = [...byPlan.keys()];
+      if (activePlanIds.length === 0) {
+        setResume([]);
+        setResumeLoading(false);
+        return;
+      }
+
+      const [{ data: planRows }, { data: dayRows }] = await Promise.all([
+        supabase.from("plans").select("id, title, total_days").in("id", activePlanIds),
+        supabase.from("plan_days").select("plan_id, day_index, label, book, chapter").in("plan_id", activePlanIds),
+      ]);
+
+      const daysByPlan = new Map<string, typeof dayRows>();
+      for (const d of dayRows ?? []) {
+        if (!daysByPlan.has(d.plan_id)) daysByPlan.set(d.plan_id, []);
+        daysByPlan.get(d.plan_id)!.push(d);
+      }
+
       const items: Resume[] = [];
-      for (const plan of PLANS) {
+      for (const plan of planRows ?? []) {
         const done = byPlan.get(plan.id) ?? new Set<number>();
-        if (done.size > 0 && done.size < plan.days.length) {
-          const nextIdx = plan.days.findIndex((_, i) => !done.has(i));
-          if (nextIdx !== -1) items.push({ plan, nextIdx, done: done.size });
-        }
+        if (done.size === 0 || done.size >= plan.total_days) continue;
+        const days = (daysByPlan.get(plan.id) ?? []).sort((a, b) => a.day_index - b.day_index);
+        const nextDay = days.find((d) => !done.has(d.day_index));
+        if (nextDay) items.push({ planId: plan.id, planTitle: plan.title, totalDays: plan.total_days, nextDay });
       }
       setResume(items);
       setResumeLoading(false);
@@ -119,16 +142,16 @@ export default function TodayPage() {
             Pick up where you left off
           </h3>
           <div className="space-y-2">
-            {resume.map(({ plan, nextIdx }) => (
-              <div key={plan.id} className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+            {resume.map(({ planId, planTitle, totalDays, nextDay }) => (
+              <div key={planId} className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background: C.card, border: `1px solid ${C.border}` }}>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[15px]" style={{ fontFamily: "'Lora', serif", color: C.ink }}>{plan.title}</p>
+                  <p className="text-[15px]" style={{ fontFamily: "'Lora', serif", color: C.ink }}>{planTitle}</p>
                   <p className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
-                    Day {nextIdx + 1} of {plan.days.length} · {plan.days[nextIdx][0]} ({plan.days[nextIdx][1]} {plan.days[nextIdx][2]})
+                    Day {nextDay.day_index + 1} of {totalDays} · {nextDay.label} ({nextDay.book} {nextDay.chapter})
                   </p>
                 </div>
                 <button
-                  onClick={() => openReading(plan.days[nextIdx][1] as string, plan.days[nextIdx][2] as number)}
+                  onClick={() => openReading(nextDay.book, nextDay.chapter)}
                   className="text-xs font-semibold focus:outline-none flex-shrink-0"
                   style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
                 >
