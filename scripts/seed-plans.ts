@@ -38,6 +38,7 @@ async function main() {
       chapter: d.chapter,
       devotional: d.devotional,
       reflection_prompt: d.reflection,
+      guided_prayer: d.guidedPrayer ?? null,
     }));
     const { error } = await supabase.from("plan_days").upsert(dayRows, { onConflict: "plan_id,day_index" });
     if (error) throw error;

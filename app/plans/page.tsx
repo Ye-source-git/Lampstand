@@ -23,6 +23,7 @@ type PlanDay = {
   chapter: number;
   devotional: string | null;
   reflection_prompt: string | null;
+  guided_prayer: string | null;
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -44,6 +45,7 @@ export default function PlansPage() {
   const [reflectDay, setReflectDay] = useState<number | null>(null);
   const [reflectDraft, setReflectDraft] = useState("");
   const [reflectSaved, setReflectSaved] = useState<Set<number>>(new Set());
+  const [prayerDay, setPrayerDay] = useState<number | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -78,7 +80,7 @@ export default function PlansPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("plan_days")
-      .select("day_index, label, book, chapter, devotional, reflection_prompt")
+      .select("day_index, label, book, chapter, devotional, reflection_prompt, guided_prayer")
       .eq("plan_id", planId)
       .order("day_index", { ascending: true });
     setPlanDays(data ?? []);
@@ -105,6 +107,10 @@ export default function PlansPage() {
   function openReflect(dayIndex: number) {
     setReflectDay(reflectDay === dayIndex ? null : dayIndex);
     setReflectDraft("");
+  }
+
+  function togglePrayer(dayIndex: number) {
+    setPrayerDay(prayerDay === dayIndex ? null : dayIndex);
   }
 
   async function saveReflection(plan: Plan, day: PlanDay) {
@@ -212,6 +218,15 @@ export default function PlansPage() {
               )}
 
               <div className="flex flex-wrap items-center gap-3">
+                {day.guided_prayer && (
+                  <button
+                    onClick={() => togglePrayer(day.day_index)}
+                    className="text-xs font-semibold focus:outline-none"
+                    style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+                  >
+                    {prayerDay === day.day_index ? "Hide prayer" : "Pray"}
+                  </button>
+                )}
                 {day.reflection_prompt && user && (
                   <button
                     onClick={() => openReflect(day.day_index)}
@@ -231,6 +246,15 @@ export default function PlansPage() {
                   Ask the Companion
                 </Link>
               </div>
+
+              {prayerDay === day.day_index && day.guided_prayer && (
+                <p
+                  className="text-sm leading-relaxed mt-3 rounded-xl px-3 py-2"
+                  style={{ fontFamily: "'Lora', serif", fontStyle: "italic", color: C.ink, background: C.paper, border: `1px solid ${C.border}` }}
+                >
+                  {day.guided_prayer}
+                </p>
+              )}
 
               {reflectDay === day.day_index && day.reflection_prompt && (
                 <div className="mt-3">
