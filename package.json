@@ -10,7 +10,8 @@
     "import:verses": "tsx scripts/import-verses.ts",
     "seed:reference": "tsx scripts/seed-reference.ts",
     "import:audio": "tsx scripts/import-audio.ts",
-    "import:commentary": "tsx scripts/import-commentary.ts"
+    "import:commentary": "tsx scripts/import-commentary.ts",
+    "import:commentary-prose": "tsx scripts/import-commentary-prose.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

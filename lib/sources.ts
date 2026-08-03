@@ -81,6 +81,19 @@ export async function gatherSources(
           crossRow.refs
         );
       }
+
+      // Classic commentary (Matthew Henry, Jamieson-Fausset-Brown, Barnes') — capped
+      // at 2 sources so one verse question can't crowd out everything else.
+      const { data: commentaryRows } = await supabase
+        .from("commentary")
+        .select("source, text")
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", verse)
+        .limit(2);
+      for (const row of commentaryRows ?? []) {
+        add(row.source, `${book} ${chapter}:${verse}`, row.text.length > 1600 ? row.text.slice(0, 1600) + "…" : row.text);
+      }
     }
   }
 
@@ -115,7 +128,7 @@ export async function gatherSources(
   // it's told there was nothing to retrieve.
   const sourceBlock = blocks.length
     ? `SOURCES:\n${blocks.join("\n\n")}`
-    : "NO SOURCES: nothing in Lampstand's scripture text, study notes, cross-references, or glossary matched this question (it likely isn't a direct passage or study-term lookup). Answer from your general knowledge if you can, but say so plainly — per your instructions, don't imply an answer is grounded in retrieved sources when it isn't.";
+    : "NO SOURCES: nothing in Lampstand's scripture text, study notes, cross-references, classic commentary, or glossary matched this question (it likely isn't a direct passage or study-term lookup). Answer from your general knowledge if you can, but say so plainly — per your instructions, don't imply an answer is grounded in retrieved sources when it isn't.";
 
   return { sources, sourceBlock };
 }

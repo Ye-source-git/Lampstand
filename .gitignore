@@ -41,4 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
+# downloaded SWORD modules + extracted commentary data (large, regeneratable — see
+# scripts/extract-commentary.py)
+scripts/.data/

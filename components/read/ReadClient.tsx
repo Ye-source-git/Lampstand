@@ -12,6 +12,7 @@ import Link from "next/link";
 type VerseRow = { verse: number; text: string };
 type Mark = { color: string | null; note: string | null; verse_text: string | null };
 type AudioTrack = { url: string; label: string; chapter_start: number; chapter_end: number };
+type CommentaryEntry = { source: string; text: string };
 
 export function ReadClient() {
   const searchParams = useSearchParams();
@@ -31,6 +32,9 @@ export function ReadClient() {
   const [crossRefsOpen, setCrossRefsOpen] = useState(false);
   const [crossRefs, setCrossRefs] = useState<string | null>(null);
   const [crossRefsLoading, setCrossRefsLoading] = useState(false);
+  const [commentaryOpen, setCommentaryOpen] = useState(false);
+  const [commentary, setCommentary] = useState<CommentaryEntry[] | null>(null);
+  const [commentaryLoading, setCommentaryLoading] = useState(false);
 
   // Honor a book/chapter passed in the URL (from Today, Plans, or Journal).
   useEffect(() => {
@@ -149,6 +153,8 @@ export function ReadClient() {
     setNoteOpen(Boolean(m?.note));
     setCrossRefsOpen(false);
     setCrossRefs(null);
+    setCommentaryOpen(false);
+    setCommentary(null);
   }
 
   async function toggleCrossRefs() {
@@ -168,6 +174,25 @@ export function ReadClient() {
         .maybeSingle();
       setCrossRefs(data?.refs ?? "");
       setCrossRefsLoading(false);
+    }
+  }
+
+  async function toggleCommentary() {
+    if (commentaryOpen) {
+      setCommentaryOpen(false);
+      return;
+    }
+    setCommentaryOpen(true);
+    if (commentary == null && selected != null) {
+      setCommentaryLoading(true);
+      const { data } = await supabase
+        .from("commentary")
+        .select("source, text")
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", selected);
+      setCommentary(data ?? []);
+      setCommentaryLoading(false);
     }
   }
 
@@ -450,6 +475,13 @@ export function ReadClient() {
             >
               {crossRefsOpen ? "Hide cross-references" : "Cross-references"}
             </button>
+            <button
+              onClick={toggleCommentary}
+              className="text-xs font-semibold focus:outline-none"
+              style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+            >
+              {commentaryOpen ? "Hide commentary" : "Commentary"}
+            </button>
           </div>
 
           {crossRefsOpen && (
@@ -477,6 +509,35 @@ export function ReadClient() {
                   </p>
                 </>
               )}
+            </div>
+          )}
+
+          {commentaryOpen && (
+            <div className="mt-3 rounded-xl px-3 py-2.5 space-y-3" style={{ background: C.paper, border: `1px solid ${C.border}` }}>
+              {commentaryLoading && (
+                <p className="text-xs italic" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
+                  Looking up classic commentary…
+                </p>
+              )}
+              {!commentaryLoading && commentary && commentary.length === 0 && (
+                <p className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                  No commentary found for this verse.
+                </p>
+              )}
+              {!commentaryLoading &&
+                commentary?.map((entry) => (
+                  <div key={entry.source}>
+                    <p
+                      className="text-[10px] font-semibold mb-1"
+                      style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold, letterSpacing: "0.06em", textTransform: "uppercase" }}
+                    >
+                      {entry.source}
+                    </p>
+                    <p className="text-sm leading-relaxed" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
+                      {entry.text}
+                    </p>
+                  </div>
+                ))}
             </div>
           )}
 
