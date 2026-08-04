@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ALL_BOOKS, C, HIGHLIGHTS, OT, NT, TRANSLATIONS } from "@/lib/constants";
 import { GoldButton, selectStyle } from "@/components/ui";
@@ -29,6 +29,8 @@ export function ReadClient() {
   const [noteDraft, setNoteDraft] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [audioTrack, setAudioTrack] = useState<AudioTrack | null>(null);
+  const [verseAudio, setVerseAudio] = useState<Record<number, number>>({});
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [crossRefsOpen, setCrossRefsOpen] = useState(false);
   const [crossRefs, setCrossRefs] = useState<string | null>(null);
   const [crossRefsLoading, setCrossRefsLoading] = useState(false);
@@ -93,6 +95,38 @@ export function ReadClient() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, chapter, translation]);
+
+  // Per-verse start times within the chapter's audio file, where we have them
+  // (coverage is partial — see scripts/align-audio.py). Falls back silently:
+  // no entry means no "play this verse" affordance for that verse.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadVerseAudio() {
+      setVerseAudio({});
+      const { data } = await supabase
+        .from("audio_verse_timestamps")
+        .select("verse, start_seconds")
+        .eq("translation", translation)
+        .eq("book", book)
+        .eq("chapter", chapter);
+      if (cancelled) return;
+      const next: Record<number, number> = {};
+      for (const row of data ?? []) next[row.verse] = row.start_seconds;
+      setVerseAudio(next);
+    }
+    loadVerseAudio();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, chapter, translation]);
+
+  function playFromVerse(verse: number) {
+    const start = verseAudio[verse];
+    if (start == null || !audioRef.current) return;
+    audioRef.current.currentTime = start;
+    audioRef.current.play();
+  }
 
   // Jump straight to a specific verse when arriving from Search (or any other link
   // that names one), e.g. /read?book=John&chapter=3&verse=16.
@@ -356,7 +390,7 @@ export function ReadClient() {
               : `Chapters ${audioTrack.chapter_start}–${audioTrack.chapter_end}`}
             {" "}(public-domain narration, LibriVox)
           </p>
-          <audio key={audioTrack.url} controls preload="none" src={audioTrack.url} className="w-full" style={{ height: 36 }} />
+          <audio ref={audioRef} key={audioTrack.url} controls preload="none" src={audioTrack.url} className="w-full" style={{ height: 36 }} />
         </div>
       )}
 
@@ -441,6 +475,15 @@ export function ReadClient() {
               </div>
             )}
             <div className="flex-1" />
+            {audioTrack && selected != null && verseAudio[selected] != null && (
+              <button
+                onClick={() => playFromVerse(selected)}
+                className="text-xs font-semibold focus:outline-none"
+                style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+              >
+                ▶ Play this verse
+              </button>
+            )}
             {user && (
               <button
                 onClick={() => setNoteOpen(!noteOpen)}
