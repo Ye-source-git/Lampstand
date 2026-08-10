@@ -13,6 +13,15 @@ type Member = { user_id: string; role: string; email: string; joined_at: string 
 type ActivePlan = { planId: string; title: string; totalDays: number };
 type MemberProgress = { userId: string; done: number; readToday: boolean };
 type PlanOption = { id: string; title: string };
+type Prayer = {
+  id: number;
+  userId: string;
+  text: string;
+  createdAt: string;
+  answeredAt: string | null;
+  ackCount: number;
+  ackedByMe: boolean;
+};
 
 export default function TableDetailPage() {
   const params = useParams();
@@ -38,6 +47,10 @@ function TableDetail({ id }: { id: string }) {
   const [streak, setStreak] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [availablePlans, setAvailablePlans] = useState<PlanOption[] | null>(null);
+
+  const [prayers, setPrayers] = useState<Prayer[] | null>(null);
+  const [newPrayerText, setNewPrayerText] = useState("");
+  const [posting, setPosting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -112,6 +125,83 @@ function TableDetail({ id }: { id: string }) {
   useEffect(() => {
     refreshPlan();
   }, [refreshPlan]);
+
+  const loadPrayers = useCallback(async () => {
+    const supabase = createClient();
+    const { data: requests } = await supabase
+      .from("prayer_requests")
+      .select("id, user_id, text, created_at, answered_at")
+      .eq("table_id", id)
+      .order("created_at", { ascending: false });
+
+    if (!requests || requests.length === 0) {
+      setPrayers([]);
+      return;
+    }
+
+    const { data: acks } = await supabase
+      .from("prayer_acknowledgments")
+      .select("prayer_id, user_id")
+      .in(
+        "prayer_id",
+        requests.map((r) => r.id)
+      );
+
+    setPrayers(
+      requests.map((r) => {
+        const theseAcks = (acks ?? []).filter((a) => a.prayer_id === r.id);
+        return {
+          id: r.id,
+          userId: r.user_id,
+          text: r.text,
+          createdAt: r.created_at,
+          answeredAt: r.answered_at,
+          ackCount: theseAcks.length,
+          ackedByMe: theseAcks.some((a) => a.user_id === user?.id),
+        };
+      })
+    );
+  }, [id, user]);
+
+  useEffect(() => {
+    loadPrayers();
+  }, [loadPrayers]);
+
+  async function postPrayer() {
+    if (!newPrayerText.trim() || !user || posting) return;
+    setPosting(true);
+    const supabase = createClient();
+    await supabase.from("prayer_requests").insert({ table_id: Number(id), user_id: user.id, text: newPrayerText.trim().slice(0, 500) });
+    setNewPrayerText("");
+    setPosting(false);
+    await loadPrayers();
+  }
+
+  async function toggleAck(prayerId: number, alreadyActed: boolean) {
+    if (!user) return;
+    const supabase = createClient();
+    if (alreadyActed) {
+      await supabase.from("prayer_acknowledgments").delete().eq("prayer_id", prayerId).eq("user_id", user.id);
+    } else {
+      await supabase.from("prayer_acknowledgments").insert({ prayer_id: prayerId, user_id: user.id });
+    }
+    await loadPrayers();
+  }
+
+  async function toggleAnswered(prayerId: number, currentlyAnswered: boolean) {
+    const supabase = createClient();
+    await supabase
+      .from("prayer_requests")
+      .update({ answered_at: currentlyAnswered ? null : new Date().toISOString() })
+      .eq("id", prayerId);
+    await loadPrayers();
+  }
+
+  async function removePrayer(prayerId: number) {
+    const supabase = createClient();
+    await supabase.from("prayer_requests").delete().eq("id", prayerId);
+    await loadPrayers();
+  }
 
   async function openPicker() {
     setPickerOpen(true);
@@ -280,6 +370,84 @@ function TableDetail({ id }: { id: string }) {
           <p className="text-sm" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
             Nobody’s started a shared plan here yet.
           </p>
+        )}
+      </div>
+
+      <div className="rounded-2xl px-5 py-4 mb-6" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+        <p className="text-xs font-semibold mb-3" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+          Prayer wall
+        </p>
+
+        <div className="mb-4">
+          <textarea
+            value={newPrayerText}
+            onChange={(e) => setNewPrayerText(e.target.value)}
+            placeholder="Share something you’d like this table to pray for…"
+            rows={2}
+            className="w-full rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none leading-relaxed"
+            style={{ fontFamily: "'Lora', serif", background: C.paper, border: `1px solid ${C.border}`, color: C.ink }}
+          />
+          <QuietButton onClick={postPrayer}>{posting ? "Sharing…" : "Share a request"}</QuietButton>
+        </div>
+
+        {prayers === null ? (
+          <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>
+            Loading…
+          </p>
+        ) : prayers.length === 0 ? (
+          <p className="text-sm" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
+            Nothing shared here yet.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {prayers.map((p) => {
+              const m = members?.find((mm) => mm.user_id === p.userId);
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-xl px-4 py-3"
+                  style={{ background: C.paper, border: `1px solid ${C.border}`, opacity: p.answeredAt ? 0.7 : 1 }}
+                >
+                  <p className="text-xs mb-1" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                    {m?.email}
+                    {p.userId === user?.id && " (you)"}
+                    {p.answeredAt && " · answered"}
+                  </p>
+                  <p className="text-sm leading-relaxed mb-2" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
+                    {p.text}
+                  </p>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                      onClick={() => toggleAck(p.id, p.ackedByMe)}
+                      className="text-xs font-semibold focus:outline-none"
+                      style={{ fontFamily: "'Albert Sans', sans-serif", color: p.ackedByMe ? C.gold : C.inkSoft }}
+                    >
+                      {p.ackedByMe ? "Praying ✓" : "Praying for this"}
+                      {p.ackCount > 0 ? ` (${p.ackCount})` : ""}
+                    </button>
+                    {p.userId === user?.id && (
+                      <button
+                        onClick={() => toggleAnswered(p.id, Boolean(p.answeredAt))}
+                        className="text-xs focus:outline-none"
+                        style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                      >
+                        {p.answeredAt ? "Mark unanswered" : "Mark answered"}
+                      </button>
+                    )}
+                    {(p.userId === user?.id || yourRole === "owner") && (
+                      <button
+                        onClick={() => removePrayer(p.id)}
+                        className="text-xs focus:outline-none"
+                        style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
