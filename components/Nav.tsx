@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/read", label: "Read" },
   { href: "/search", label: "Search" },
   { href: "/plans", label: "Plans" },
+  { href: "/tables", label: "Tables" },
   { href: "/companion", label: "Companion" },
   { href: "/guide", label: "Study Guide" },
   { href: "/journal", label: "Journal" },
