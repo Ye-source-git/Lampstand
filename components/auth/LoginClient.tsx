@@ -15,8 +15,14 @@ export function LoginClient() {
   const forTable = searchParams.get("reason") === "table";
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [signingIntoExisting, setSigningIntoExisting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function looksLikeEmailAlreadyRegistered(message: string) {
+    const m = message.toLowerCase();
+    return m.includes("already registered") || m.includes("already been registered") || m.includes("already exists");
+  }
 
   async function sendMagicLink() {
     if (!email.trim() || busy) return;
@@ -24,15 +30,35 @@ export function LoginClient() {
     setError(null);
     const supabase = createClient();
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
-    // An anonymous session gets *upgraded* in place (same user_id, so existing
-    // highlights/journal/plan progress carry over) rather than starting a fresh
-    // sign-in, which would otherwise leave that data behind under the old identity.
-    const { error } = isAnonymous
-      ? await supabase.auth.updateUser({ email: email.trim() }, { emailRedirectTo: redirectTo })
-      : await supabase.auth.signInWithOtp({
-          email: email.trim(),
-          options: { emailRedirectTo: redirectTo },
-        });
+
+    if (isAnonymous) {
+      // An anonymous session gets *upgraded* in place (same user_id, so existing
+      // highlights/journal/plan progress carry over) rather than starting a fresh
+      // sign-in, which would otherwise leave that data behind under the old identity.
+      const { error } = await supabase.auth.updateUser({ email: email.trim() }, { emailRedirectTo: redirectTo });
+      if (error && looksLikeEmailAlreadyRegistered(error.message)) {
+        // That email already belongs to a different, existing account — it can't
+        // be claimed onto this anonymous session. The person almost certainly
+        // just wants back into that account, so send a normal sign-in link
+        // instead of dead-ending on the "already registered" error. This
+        // session's anonymous-only data (if any) won't carry over, since
+        // signing in switches to that other account's user_id.
+        const retry = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirectTo } });
+        setBusy(false);
+        if (retry.error) setError(retry.error.message);
+        else {
+          setSigningIntoExisting(true);
+          setSent(true);
+        }
+        return;
+      }
+      setBusy(false);
+      if (error) setError(error.message);
+      else setSent(true);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: redirectTo } });
     setBusy(false);
     if (error) setError(error.message);
     else setSent(true);
@@ -71,9 +97,11 @@ export function LoginClient() {
 
       {sent ? (
         <p className="text-sm" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
-          {isAnonymous
-            ? "Check your email for a confirmation link to finish saving your account."
-            : "Check your email for a sign-in link."}
+          {signingIntoExisting
+            ? "That email already has a Lampstand account. Check your email for a sign-in link — any highlights, notes, or progress from just this browser session won’t carry over, but everything saved to that account will be there."
+            : isAnonymous
+              ? "Check your email for a confirmation link to finish saving your account."
+              : "Check your email for a sign-in link."}
         </p>
       ) : (
         <>
