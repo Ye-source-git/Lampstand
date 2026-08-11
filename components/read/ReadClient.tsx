@@ -13,6 +13,8 @@ type VerseRow = { verse: number; text: string };
 type Mark = { color: string | null; note: string | null; verse_text: string | null };
 type AudioTrack = { url: string; label: string; chapter_start: number; chapter_end: number };
 type CommentaryEntry = { source: string; text: string };
+type TableOption = { id: number; name: string };
+type DiscussionMessage = { id: number; userId: string; email: string; text: string; createdAt: string };
 
 export function ReadClient() {
   const searchParams = useSearchParams();
@@ -37,6 +39,14 @@ export function ReadClient() {
   const [commentaryOpen, setCommentaryOpen] = useState(false);
   const [commentary, setCommentary] = useState<CommentaryEntry[] | null>(null);
   const [commentaryLoading, setCommentaryLoading] = useState(false);
+
+  const [myTables, setMyTables] = useState<TableOption[]>([]);
+  const [discussionOpen, setDiscussionOpen] = useState(false);
+  const [discussionTableId, setDiscussionTableId] = useState<number | null>(null);
+  const [discussionMessages, setDiscussionMessages] = useState<DiscussionMessage[] | null>(null);
+  const [discussionLocked, setDiscussionLocked] = useState(false);
+  const [discussionYourRole, setDiscussionYourRole] = useState<string | null>(null);
+  const [newDiscussionText, setNewDiscussionText] = useState("");
 
   // Honor a book/chapter passed in the URL (from Today, Plans, or Journal).
   useEffect(() => {
@@ -121,6 +131,25 @@ export function ReadClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, chapter, translation]);
 
+  useEffect(() => {
+    if (!user) {
+      setMyTables([]);
+      return;
+    }
+    (async () => {
+      const { data } = await supabase.from("table_members").select("role, tables(id, name)").eq("user_id", user.id);
+      setMyTables(
+        (data ?? [])
+          .map((r) => {
+            const t = Array.isArray(r.tables) ? r.tables[0] : r.tables;
+            return t ? { id: t.id, name: t.name } : null;
+          })
+          .filter((t): t is TableOption => t !== null)
+      );
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   function playFromVerse(verse: number) {
     const start = verseAudio[verse];
     if (start == null || !audioRef.current) return;
@@ -189,6 +218,8 @@ export function ReadClient() {
     setCrossRefs(null);
     setCommentaryOpen(false);
     setCommentary(null);
+    setDiscussionOpen(false);
+    setDiscussionMessages(null);
   }
 
   async function toggleCrossRefs() {
@@ -228,6 +259,96 @@ export function ReadClient() {
       setCommentary(data ?? []);
       setCommentaryLoading(false);
     }
+  }
+
+  async function loadDiscussion(tableId: number) {
+    if (selected == null) return;
+    const [{ data: messages }, { data: lock }, memberRes] = await Promise.all([
+      supabase
+        .from("verse_discussions")
+        .select("id, user_id, text, created_at")
+        .eq("table_id", tableId)
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", selected)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("verse_discussion_locks")
+        .select("table_id")
+        .eq("table_id", tableId)
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", selected)
+        .maybeSingle(),
+      fetch(`/api/tables/${tableId}/members`),
+    ]);
+    let emailByUser: Record<string, string> = {};
+    let yourRole: string | null = null;
+    if (memberRes.ok) {
+      const json = await memberRes.json();
+      yourRole = json.yourRole;
+      emailByUser = Object.fromEntries(json.members.map((m: { user_id: string; email: string }) => [m.user_id, m.email]));
+    }
+    setDiscussionMessages(
+      (messages ?? []).map((m) => ({ id: m.id, userId: m.user_id, email: emailByUser[m.user_id] ?? "Member", text: m.text, createdAt: m.created_at }))
+    );
+    setDiscussionLocked(Boolean(lock));
+    setDiscussionYourRole(yourRole);
+  }
+
+  function toggleDiscussion() {
+    if (discussionOpen) {
+      setDiscussionOpen(false);
+      return;
+    }
+    setDiscussionOpen(true);
+    const tableId = discussionTableId ?? myTables[0]?.id ?? null;
+    setDiscussionTableId(tableId);
+    if (tableId != null) loadDiscussion(tableId);
+  }
+
+  function switchDiscussionTable(tableId: number) {
+    setDiscussionTableId(tableId);
+    setDiscussionMessages(null);
+    loadDiscussion(tableId);
+  }
+
+  async function postDiscussion() {
+    if (!user || !discussionTableId || !newDiscussionText.trim() || selected == null || discussionLocked) return;
+    await supabase.from("verse_discussions").insert({
+      table_id: discussionTableId,
+      book,
+      chapter,
+      verse: selected,
+      user_id: user.id,
+      text: newDiscussionText.trim().slice(0, 1000),
+    });
+    setNewDiscussionText("");
+    await loadDiscussion(discussionTableId);
+  }
+
+  async function removeDiscussionMessage(messageId: number) {
+    if (!discussionTableId) return;
+    await supabase.from("verse_discussions").delete().eq("id", messageId);
+    await loadDiscussion(discussionTableId);
+  }
+
+  async function toggleLock() {
+    if (!user || !discussionTableId || selected == null) return;
+    if (discussionLocked) {
+      await supabase
+        .from("verse_discussion_locks")
+        .delete()
+        .eq("table_id", discussionTableId)
+        .eq("book", book)
+        .eq("chapter", chapter)
+        .eq("verse", selected);
+    } else {
+      await supabase
+        .from("verse_discussion_locks")
+        .insert({ table_id: discussionTableId, book, chapter, verse: selected, locked_by: user.id });
+    }
+    await loadDiscussion(discussionTableId);
   }
 
   async function setHighlight(color: string) {
@@ -525,6 +646,15 @@ export function ReadClient() {
             >
               {commentaryOpen ? "Hide commentary" : "Commentary"}
             </button>
+            {myTables.length > 0 && (
+              <button
+                onClick={toggleDiscussion}
+                className="text-xs font-semibold focus:outline-none"
+                style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+              >
+                {discussionOpen ? "Hide discussion" : "Discuss"}
+              </button>
+            )}
           </div>
 
           {crossRefsOpen && (
@@ -581,6 +711,91 @@ export function ReadClient() {
                     </p>
                   </div>
                 ))}
+            </div>
+          )}
+
+          {discussionOpen && (
+            <div className="mt-3 rounded-xl px-3 py-2.5" style={{ background: C.paper, border: `1px solid ${C.border}` }}>
+              {myTables.length > 1 && (
+                <select
+                  value={discussionTableId ?? ""}
+                  onChange={(e) => switchDiscussionTable(Number(e.target.value))}
+                  className="rounded-lg px-2 py-1 text-xs mb-2 focus:outline-none"
+                  style={{ fontFamily: "'Albert Sans', sans-serif", background: C.white, border: `1px solid ${C.border}`, color: C.ink }}
+                >
+                  {myTables.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {discussionMessages === null ? (
+                <p className="text-xs italic" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
+                  Loading…
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2 mb-3">
+                    {discussionMessages.length === 0 && (
+                      <p className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                        Nobody’s said anything here yet.
+                      </p>
+                    )}
+                    {discussionMessages.map((m) => (
+                      <div key={m.id} className="rounded-lg px-3 py-2" style={{ background: C.white, border: `1px solid ${C.border}` }}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <p className="text-[11px] font-semibold" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                            {m.email}
+                            {m.userId === user?.id && " (you)"}
+                          </p>
+                          {(m.userId === user?.id || discussionYourRole === "owner") && (
+                            <button
+                              onClick={() => removeDiscussionMessage(m.id)}
+                              className="text-[11px] focus:outline-none"
+                              style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-sm leading-relaxed" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
+                          {m.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {discussionYourRole === "owner" && (
+                    <button
+                      onClick={toggleLock}
+                      className="text-[11px] mb-2 focus:outline-none block"
+                      style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                    >
+                      {discussionLocked ? "Unlock discussion" : "Lock discussion"}
+                    </button>
+                  )}
+
+                  {discussionLocked ? (
+                    <p className="text-xs italic" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
+                      This table’s owner has closed discussion on this verse for now.
+                    </p>
+                  ) : (
+                    <>
+                      <textarea
+                        value={newDiscussionText}
+                        onChange={(e) => setNewDiscussionText(e.target.value)}
+                        placeholder="What stood out to you here?"
+                        rows={2}
+                        className="w-full rounded-lg px-2 py-1.5 text-sm mb-2 focus:outline-none leading-relaxed"
+                        style={{ fontFamily: "'Lora', serif", background: C.white, border: `1px solid ${C.border}`, color: C.ink }}
+                      />
+                      <GoldButton onClick={postDiscussion}>Post</GoldButton>
+                    </>
+                  )}
+                </>
+              )}
             </div>
           )}
 
