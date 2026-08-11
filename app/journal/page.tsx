@@ -8,7 +8,8 @@ import { GoldButton } from "@/components/ui";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 
-type JournalEntry = { id: number; text: string; created_at: string };
+type JournalEntry = { id: number; text: string; created_at: string; shared_with_table_id: number | null };
+type TableOption = { id: number; name: string };
 type MarkRow = {
   id: number;
   book: string;
@@ -25,6 +26,8 @@ export default function JournalPage() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [marks, setMarks] = useState<MarkRow[]>([]);
   const [draft, setDraft] = useState("");
+  const [shareTableId, setShareTableId] = useState<number | "">("");
+  const [tables, setTables] = useState<TableOption[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -35,12 +38,25 @@ export default function JournalPage() {
         return;
       }
       const supabase = createClient();
-      const [entriesRes, marksRes] = await Promise.all([
-        supabase.from("journal_entries").select("id, text, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+      const [entriesRes, marksRes, tablesRes] = await Promise.all([
+        supabase
+          .from("journal_entries")
+          .select("id, text, created_at, shared_with_table_id")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
         supabase.from("marks").select("id, book, chapter, verse, color, note, verse_text").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("table_members").select("role, tables(id, name)").eq("user_id", user.id),
       ]);
       setEntries(entriesRes.data ?? []);
       setMarks(marksRes.data ?? []);
+      setTables(
+        (tablesRes.data ?? [])
+          .map((r) => {
+            const t = Array.isArray(r.tables) ? r.tables[0] : r.tables;
+            return t ? { id: t.id, name: t.name } : null;
+          })
+          .filter((t): t is TableOption => t !== null)
+      );
       setLoaded(true);
     })();
   }, [user, authLoading]);
@@ -61,11 +77,12 @@ export default function JournalPage() {
     const supabase = createClient();
     const { data } = await supabase
       .from("journal_entries")
-      .insert({ user_id: user.id, text: draft.trim() })
-      .select("id, text, created_at")
+      .insert({ user_id: user.id, text: draft.trim(), shared_with_table_id: shareTableId || null })
+      .select("id, text, created_at, shared_with_table_id")
       .single();
     if (data) setEntries([data, ...entries]);
     setDraft("");
+    setShareTableId("");
   }
 
   async function removeEntry(id: number) {
@@ -73,6 +90,13 @@ export default function JournalPage() {
     const supabase = createClient();
     await supabase.from("journal_entries").delete().eq("id", id).eq("user_id", user.id);
     setEntries(entries.filter((e) => e.id !== id));
+  }
+
+  async function setEntrySharing(id: number, tableId: number | null) {
+    if (!user) return;
+    const supabase = createClient();
+    await supabase.from("journal_entries").update({ shared_with_table_id: tableId }).eq("id", id).eq("user_id", user.id);
+    setEntries(entries.map((e) => (e.id === id ? { ...e, shared_with_table_id: tableId } : e)));
   }
 
   if (!authLoading && !user) {
@@ -172,6 +196,26 @@ export default function JournalPage() {
         className="w-full rounded-xl px-4 py-3 text-[15px] mb-3 focus:outline-none leading-relaxed"
         style={{ fontFamily: "'Lora', serif", background: C.white, border: `1px solid ${C.border}`, color: C.ink }}
       />
+      {tables.length > 0 && (
+        <div className="flex items-center gap-2 mb-3">
+          <label className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+            Share with:
+          </label>
+          <select
+            value={shareTableId}
+            onChange={(e) => setShareTableId(e.target.value ? Number(e.target.value) : "")}
+            className="rounded-lg px-2 py-1 text-xs focus:outline-none"
+            style={{ fontFamily: "'Albert Sans', sans-serif", background: C.white, border: `1px solid ${C.border}`, color: C.ink }}
+          >
+            <option value="">Keep private</option>
+            {tables.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <GoldButton onClick={addEntry} disabled={!draft.trim()}>
         Save entry
       </GoldButton>
@@ -182,25 +226,57 @@ export default function JournalPage() {
             Your first entry will appear here.
           </p>
         )}
-        {entries.map((e) => (
-          <div key={e.id} className="rounded-2xl px-5 py-4" style={{ background: C.card, border: `1px solid ${C.border}` }}>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] font-semibold" style={{ color: C.gold, fontFamily: "'Albert Sans', sans-serif" }}>
-                {new Date(e.created_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+        {entries.map((e) => {
+          const sharedTable = tables.find((t) => t.id === e.shared_with_table_id);
+          return (
+            <div key={e.id} className="rounded-2xl px-5 py-4" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[11px] font-semibold" style={{ color: C.gold, fontFamily: "'Albert Sans', sans-serif" }}>
+                  {new Date(e.created_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+                <button
+                  onClick={() => removeEntry(e.id)}
+                  className="text-[11px] focus:outline-none"
+                  style={{ color: C.inkSoft, fontFamily: "'Albert Sans', sans-serif" }}
+                >
+                  Delete
+                </button>
+              </div>
+              <p className="text-[15px] leading-relaxed whitespace-pre-wrap mb-2" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
+                {e.text}
               </p>
-              <button
-                onClick={() => removeEntry(e.id)}
-                className="text-[11px] focus:outline-none"
-                style={{ color: C.inkSoft, fontFamily: "'Albert Sans', sans-serif" }}
-              >
-                Delete
-              </button>
+              {sharedTable ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px]" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}>
+                    Shared with {sharedTable.name}
+                  </span>
+                  <button
+                    onClick={() => setEntrySharing(e.id, null)}
+                    className="text-[11px] focus:outline-none"
+                    style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                  >
+                    Make private
+                  </button>
+                </div>
+              ) : (
+                tables.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {tables.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setEntrySharing(e.id, t.id)}
+                        className="text-[11px] focus:outline-none"
+                        style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}
+                      >
+                        Share with {t.name}
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
             </div>
-            <p className="text-[15px] leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
-              {e.text}
-            </p>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

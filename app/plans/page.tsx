@@ -26,6 +26,8 @@ type PlanDay = {
   guided_prayer: string | null;
 };
 
+type TableOption = { id: number; name: string };
+
 const CATEGORY_LABELS: Record<string, string> = {
   starter: "Getting Started",
   topical: "For Where You Are",
@@ -46,6 +48,8 @@ export default function PlansPage() {
   const [reflectDraft, setReflectDraft] = useState("");
   const [reflectSaved, setReflectSaved] = useState<Set<number>>(new Set());
   const [prayerDay, setPrayerDay] = useState<number | null>(null);
+  const [reflectShareTableId, setReflectShareTableId] = useState<number | "">("");
+  const [tables, setTables] = useState<TableOption[]>([]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -62,13 +66,24 @@ export default function PlansPage() {
         setLoaded(true);
         return;
       }
-      const { data } = await supabase.from("plan_progress").select("plan_id, day_index").eq("user_id", user.id);
+      const [progressRes, tablesRes] = await Promise.all([
+        supabase.from("plan_progress").select("plan_id, day_index").eq("user_id", user.id),
+        supabase.from("table_members").select("role, tables(id, name)").eq("user_id", user.id),
+      ]);
       const next: Record<string, Set<number>> = {};
-      for (const row of data ?? []) {
+      for (const row of progressRes.data ?? []) {
         if (!next[row.plan_id]) next[row.plan_id] = new Set();
         next[row.plan_id].add(row.day_index);
       }
       setProgress(next);
+      setTables(
+        (tablesRes.data ?? [])
+          .map((r) => {
+            const t = Array.isArray(r.tables) ? r.tables[0] : r.tables;
+            return t ? { id: t.id, name: t.name } : null;
+          })
+          .filter((t): t is TableOption => t !== null)
+      );
       setLoaded(true);
     })();
   }, [user, authLoading]);
@@ -107,6 +122,7 @@ export default function PlansPage() {
   function openReflect(dayIndex: number) {
     setReflectDay(reflectDay === dayIndex ? null : dayIndex);
     setReflectDraft("");
+    setReflectShareTableId("");
   }
 
   function togglePrayer(dayIndex: number) {
@@ -117,10 +133,11 @@ export default function PlansPage() {
     if (!user || !reflectDraft.trim()) return;
     const supabase = createClient();
     const text = `${plan.title} · Day ${day.day_index + 1}: ${day.label}\n\n${reflectDraft.trim()}`;
-    await supabase.from("journal_entries").insert({ user_id: user.id, text });
+    await supabase.from("journal_entries").insert({ user_id: user.id, text, shared_with_table_id: reflectShareTableId || null });
     setReflectSaved(new Set([...reflectSaved, day.day_index]));
     setReflectDay(null);
     setReflectDraft("");
+    setReflectShareTableId("");
   }
 
   if (!loaded) {
@@ -269,6 +286,26 @@ export default function PlansPage() {
                     className="w-full rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none leading-relaxed"
                     style={{ fontFamily: "'Lora', serif", background: C.paper, border: `1px solid ${C.border}`, color: C.ink }}
                   />
+                  {tables.length > 0 && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <label className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                        Share with:
+                      </label>
+                      <select
+                        value={reflectShareTableId}
+                        onChange={(e) => setReflectShareTableId(e.target.value ? Number(e.target.value) : "")}
+                        className="rounded-lg px-2 py-1 text-xs focus:outline-none"
+                        style={{ fontFamily: "'Albert Sans', sans-serif", background: C.white, border: `1px solid ${C.border}`, color: C.ink }}
+                      >
+                        <option value="">Keep private</option>
+                        {tables.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <GoldButton onClick={() => saveReflection(plan, day)} disabled={!reflectDraft.trim()}>
                     Save to Journal
                   </GoldButton>

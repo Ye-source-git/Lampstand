@@ -22,6 +22,7 @@ type Prayer = {
   ackCount: number;
   ackedByMe: boolean;
 };
+type Reflection = { id: number; userId: string; text: string; createdAt: string };
 
 export default function TableDetailPage() {
   const params = useParams();
@@ -51,6 +52,8 @@ function TableDetail({ id }: { id: string }) {
   const [prayers, setPrayers] = useState<Prayer[] | null>(null);
   const [newPrayerText, setNewPrayerText] = useState("");
   const [posting, setPosting] = useState(false);
+
+  const [reflections, setReflections] = useState<Reflection[] | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -202,6 +205,20 @@ function TableDetail({ id }: { id: string }) {
     await supabase.from("prayer_requests").delete().eq("id", prayerId);
     await loadPrayers();
   }
+
+  const loadReflections = useCallback(async () => {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("journal_entries")
+      .select("id, user_id, text, created_at")
+      .eq("shared_with_table_id", id)
+      .order("created_at", { ascending: false });
+    setReflections((data ?? []).map((r) => ({ id: r.id, userId: r.user_id, text: r.text, createdAt: r.created_at })));
+  }, [id]);
+
+  useEffect(() => {
+    loadReflections();
+  }, [loadReflections]);
 
   async function openPicker() {
     setPickerOpen(true);
@@ -444,6 +461,43 @@ function TableDetail({ id }: { id: string }) {
                       </button>
                     )}
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl px-5 py-4 mb-6" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+        <p className="text-xs font-semibold mb-3" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+          Shared reflections
+        </p>
+        <p className="text-xs mb-3" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+          Reflections journaled elsewhere in Lampstand show up here only if someone chooses to share them with this
+          table.
+        </p>
+        {reflections === null ? (
+          <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>
+            Loading…
+          </p>
+        ) : reflections.length === 0 ? (
+          <p className="text-sm" style={{ fontFamily: "'Lora', serif", color: C.inkSoft }}>
+            Nothing shared here yet.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {reflections.map((r) => {
+              const m = members?.find((mm) => mm.user_id === r.userId);
+              return (
+                <div key={r.id} className="rounded-xl px-4 py-3" style={{ background: C.paper, border: `1px solid ${C.border}` }}>
+                  <p className="text-xs mb-1" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                    {m?.email}
+                    {r.userId === user?.id && " (you)"} ·{" "}
+                    {new Date(r.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric" })}
+                  </p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
+                    {r.text}
+                  </p>
                 </div>
               );
             })}
