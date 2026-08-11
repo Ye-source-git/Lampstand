@@ -28,7 +28,7 @@ export function Nav() {
           <div className="flex items-baseline gap-3">
             <Link href="/">
               <h1 style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 30, color: C.ink }}>
-                Lampstand
+                Longtable
               </h1>
             </Link>
           </div>

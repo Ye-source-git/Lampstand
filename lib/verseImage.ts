@@ -85,7 +85,7 @@ export async function generateVerseImage({ reference, text, translationName }: V
 
   ctx.font = "700 34px Fraunces, Georgia, serif";
   ctx.fillStyle = BRAND.gold;
-  ctx.fillText("Lampstand", marginX, SIZE - 80);
+  ctx.fillText("Longtable", marginX, SIZE - 80);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
@@ -97,12 +97,12 @@ export async function generateVerseImage({ reference, text, translationName }: V
 
 export async function shareOrDownloadVerseImage(input: VerseImageInput) {
   const blob = await generateVerseImage(input);
-  const filename = `lampstand-${input.reference.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}.png`;
+  const filename = `longtable-${input.reference.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}.png`;
   const file = new File([blob], filename, { type: "image/png" });
 
   if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: input.reference, text: `${input.reference} — Lampstand` });
+      await navigator.share({ files: [file], title: input.reference, text: `${input.reference} — Longtable` });
       return;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;

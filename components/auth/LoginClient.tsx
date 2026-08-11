@@ -91,14 +91,14 @@ export function LoginClient() {
         {isAnonymous
           ? forTable
             ? "Tables are shared with people you invite, so we ask you to save your account first — that way you keep your seat at the table even if you switch devices or clear your browser."
-            : "You can already use Lampstand fully without an account. Add an email or Google account to keep your highlights, notes, and progress if you switch devices or clear your browser."
+            : "You can already use Longtable fully without an account. Add an email or Google account to keep your highlights, notes, and progress if you switch devices or clear your browser."
           : "Sign in to keep your highlights, notes, and progress across devices."}
       </p>
 
       {sent ? (
         <p className="text-sm" style={{ fontFamily: "'Lora', serif", color: C.ink }}>
           {signingIntoExisting
-            ? "That email already has a Lampstand account. Check your email for a sign-in link — any highlights, notes, or progress from just this browser session won’t carry over, but everything saved to that account will be there."
+            ? "That email already has a Longtable account. Check your email for a sign-in link — any highlights, notes, or progress from just this browser session won’t carry over, but everything saved to that account will be there."
             : isAnonymous
               ? "Check your email for a confirmation link to finish saving your account."
               : "Check your email for a sign-in link."}

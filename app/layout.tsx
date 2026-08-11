@@ -5,7 +5,7 @@ import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { Nav } from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Lampstand — Bible study for everyone",
+  title: "Longtable — Bible study for everyone",
   description: "Scripture, open to everyone — whatever your tradition, wherever you’re starting.",
 };
 
@@ -28,12 +28,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="px-5 py-8 max-w-3xl mx-auto">{children}</main>
             <footer className="px-5 pb-10 max-w-3xl mx-auto">
               <p className="text-[11px] leading-relaxed" style={{ color: C.inkSoft, fontFamily: "'Albert Sans', sans-serif" }}>
-                Lampstand is a non-profit project. Scripture: World English Bible, King James
+                Longtable is a non-profit project. Scripture: World English Bible, King James
                 Version, and American Standard Version (public domain). Audio narration and study
                 references include material from LibriVox, the Treasury of Scripture Knowledge,
                 Easton&rsquo;s Bible Dictionary, and the classic commentaries of Matthew Henry,
                 Jamieson-Fausset-Brown, and Albert Barnes (all public domain) &mdash; these reflect
-                each historic author&rsquo;s own voice and tradition, not Lampstand&rsquo;s. The
+                each historic author&rsquo;s own voice and tradition, not Longtable&rsquo;s. The
                 Study Companion is an AI study tool — it describes texts, history, and the range of
                 traditional interpretations; it does not decide questions of faith for you.
               </p>

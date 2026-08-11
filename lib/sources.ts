@@ -60,7 +60,7 @@ export async function gatherSources(
       .eq("book", book)
       .maybeSingle();
     if (noteRow?.note) {
-      add("Background — Lampstand study notes", `About the book of ${book}`, noteRow.note);
+      add("Background — Longtable study notes", `About the book of ${book}`, noteRow.note);
     }
 
     // Cross-references are verse-level (Treasury of Scripture Knowledge) — only
@@ -117,7 +117,7 @@ export async function gatherSources(
     if (glossaryRows) {
       for (const { entry } of glossaryRows) {
         if (n >= 6) break;
-        add("Glossary — Lampstand study notes", entry.split(":")[0], entry);
+        add("Glossary — Longtable study notes", entry.split(":")[0], entry);
       }
     }
   }
@@ -128,7 +128,7 @@ export async function gatherSources(
   // it's told there was nothing to retrieve.
   const sourceBlock = blocks.length
     ? `SOURCES:\n${blocks.join("\n\n")}`
-    : "NO SOURCES: nothing in Lampstand's scripture text, study notes, cross-references, classic commentary, or glossary matched this question (it likely isn't a direct passage or study-term lookup). Answer from your general knowledge if you can, but say so plainly — per your instructions, don't imply an answer is grounded in retrieved sources when it isn't.";
+    : "NO SOURCES: nothing in Longtable's scripture text, study notes, cross-references, classic commentary, or glossary matched this question (it likely isn't a direct passage or study-term lookup). Answer from your general knowledge if you can, but say so plainly — per your instructions, don't imply an answer is grounded in retrieved sources when it isn't.";
 
   return { sources, sourceBlock };
 }

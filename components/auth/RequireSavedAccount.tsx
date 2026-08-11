@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 
 // Tables are the one part of the app that requires a saved (non-anonymous)
 // account — membership needs to survive a device switch or cleared cookies,
-// which an anonymous session can't promise. Everything else in Lampstand
+// which an anonymous session can't promise. Everything else in Longtable
 // stays anonymous-friendly.
 export function RequireSavedAccount({ next, children }: { next: string; children: React.ReactNode }) {
   const { user, loading } = useAuth();

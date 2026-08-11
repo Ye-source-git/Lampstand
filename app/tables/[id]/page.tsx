@@ -473,7 +473,7 @@ function TableDetail({ id }: { id: string }) {
           Shared reflections
         </p>
         <p className="text-xs mb-3" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
-          Reflections journaled elsewhere in Lampstand show up here only if someone chooses to share them with this
+          Reflections journaled elsewhere in Longtable show up here only if someone chooses to share them with this
           table.
         </p>
         {reflections === null ? (
