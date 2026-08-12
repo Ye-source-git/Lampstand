@@ -13,7 +13,8 @@
     "import:commentary": "tsx scripts/import-commentary.ts",
     "import:commentary-prose": "tsx scripts/import-commentary-prose.ts",
     "seed:plans": "tsx scripts/seed-plans.ts",
-    "import:audio-timestamps": "tsx scripts/import-audio-verse-timestamps.ts"
+    "import:audio-timestamps": "tsx scripts/import-audio-verse-timestamps.ts",
+    "seed:book-studies": "tsx scripts/seed-book-studies.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

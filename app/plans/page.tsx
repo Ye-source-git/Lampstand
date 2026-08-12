@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { C } from "@/lib/constants";
-import { GoldButton } from "@/components/ui";
+import { C, NT, OT } from "@/lib/constants";
+import { GoldButton, selectStyle } from "@/components/ui";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 
@@ -36,6 +36,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 const CATEGORY_ORDER = ["starter", "topical", "life-of-jesus", "whole-bible"];
 
+function slugify(book: string) {
+  return book.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 export default function PlansPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -50,6 +54,7 @@ export default function PlansPage() {
   const [prayerDay, setPrayerDay] = useState<number | null>(null);
   const [reflectShareTableId, setReflectShareTableId] = useState<number | "">("");
   const [tables, setTables] = useState<TableOption[]>([]);
+  const [bookPickerValue, setBookPickerValue] = useState(OT[0][0]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -372,6 +377,40 @@ export default function PlansPage() {
           </div>
         </div>
       ))}
+
+      <div className="rounded-2xl px-5 py-5" style={{ background: C.card, border: `1px solid ${C.border}` }}>
+        <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: C.ink }} className="mb-1">
+          Study any book
+        </h3>
+        <p className="text-sm mb-4" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+          A chapter-by-chapter path through any book of the Bible — one chapter a day. The depth comes from the
+          cross-references and commentary already on the Read page as you go.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={bookPickerValue}
+            onChange={(e) => setBookPickerValue(e.target.value)}
+            className="rounded-xl px-3 py-2 text-sm focus:outline-none"
+            style={selectStyle}
+          >
+            <optgroup label="Hebrew Bible / Old Testament">
+              {OT.map(([b]) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="New Testament">
+              {NT.map(([b]) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </optgroup>
+          </select>
+          <GoldButton onClick={() => openPlan(`book-${slugify(bookPickerValue)}`)}>Study {bookPickerValue}</GoldButton>
+        </div>
+      </div>
     </div>
   );
 }
