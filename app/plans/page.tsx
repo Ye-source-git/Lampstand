@@ -16,6 +16,8 @@ type Plan = {
   total_days: number;
 };
 
+type ExtraPassage = { group: "family" | "secret"; display: string; book: string; chapter: number };
+
 type PlanDay = {
   day_index: number;
   label: string;
@@ -24,6 +26,7 @@ type PlanDay = {
   devotional: string | null;
   reflection_prompt: string | null;
   guided_prayer: string | null;
+  extra_passages: ExtraPassage[] | null;
 };
 
 type TableOption = { id: number; name: string };
@@ -55,6 +58,7 @@ export default function PlansPage() {
   const [reflectShareTableId, setReflectShareTableId] = useState<number | "">("");
   const [tables, setTables] = useState<TableOption[]>([]);
   const [bookPickerValue, setBookPickerValue] = useState(OT[0][0]);
+  const [visibleCount, setVisibleCount] = useState(30);
 
   useEffect(() => {
     if (authLoading) return;
@@ -97,10 +101,17 @@ export default function PlansPage() {
     setOpenPlanId(planId);
     setPlanDays(null);
     setReflectDay(null);
+    // Long plans (M'Cheyne's 365 days, or a 150-chapter book study) shouldn't
+    // render every day unwindowed — start with a window that already covers
+    // wherever this reader left off, rather than always day 1.
+    const done = progress[planId] || new Set<number>();
+    let firstIncomplete = 0;
+    while (done.has(firstIncomplete)) firstIncomplete++;
+    setVisibleCount(Math.max(30, firstIncomplete + 15));
     const supabase = createClient();
     const { data } = await supabase
       .from("plan_days")
-      .select("day_index, label, book, chapter, devotional, reflection_prompt, guided_prayer")
+      .select("day_index, label, book, chapter, devotional, reflection_prompt, guided_prayer, extra_passages")
       .eq("plan_id", planId)
       .order("day_index", { ascending: true });
     setPlanDays(data ?? []);
@@ -196,7 +207,7 @@ export default function PlansPage() {
         )}
 
         <div className="space-y-3">
-          {planDays?.map((day) => (
+          {planDays?.slice(0, visibleCount).map((day) => (
             <div key={day.day_index} className="rounded-2xl px-4 py-4" style={{ background: C.card, border: `1px solid ${C.border}`, opacity: done.has(day.day_index) ? 0.75 : 1 }}>
               <div className="flex items-start gap-3 mb-2">
                 <button
@@ -220,17 +231,53 @@ export default function PlansPage() {
                   >
                     Day {day.day_index + 1} · {day.label}
                   </p>
-                  <p className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
-                    {day.book} {day.chapter}
-                  </p>
+                  {day.extra_passages && day.extra_passages.length > 0 ? (
+                    <div className="text-xs mt-1 space-y-0.5" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                      <p>
+                        <span style={{ color: C.gold, fontWeight: 600 }}>Family: </span>
+                        <button onClick={() => openReading(day.book, day.chapter)} className="focus:outline-none" style={{ color: C.inkSoft }}>
+                          {day.book} {day.chapter}
+                        </button>
+                        {day.extra_passages
+                          .filter((p) => p.group === "family")
+                          .map((p) => (
+                            <span key={p.display}>
+                              {" · "}
+                              <button onClick={() => openReading(p.book, p.chapter)} className="focus:outline-none" style={{ color: C.inkSoft }}>
+                                {p.display}
+                              </button>
+                            </span>
+                          ))}
+                      </p>
+                      <p>
+                        <span style={{ color: C.gold, fontWeight: 600 }}>Secret: </span>
+                        {day.extra_passages
+                          .filter((p) => p.group === "secret")
+                          .map((p, i) => (
+                            <span key={p.display}>
+                              {i > 0 && " · "}
+                              <button onClick={() => openReading(p.book, p.chapter)} className="focus:outline-none" style={{ color: C.inkSoft }}>
+                                {p.display}
+                              </button>
+                            </span>
+                          ))}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+                      {day.book} {day.chapter}
+                    </p>
+                  )}
                 </div>
-                <button
-                  onClick={() => openReading(day.book, day.chapter)}
-                  className="text-xs font-semibold focus:outline-none flex-shrink-0"
-                  style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
-                >
-                  Read →
-                </button>
+                {!(day.extra_passages && day.extra_passages.length > 0) && (
+                  <button
+                    onClick={() => openReading(day.book, day.chapter)}
+                    className="text-xs font-semibold focus:outline-none flex-shrink-0"
+                    style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+                  >
+                    Read →
+                  </button>
+                )}
               </div>
 
               {day.devotional && (
@@ -319,6 +366,16 @@ export default function PlansPage() {
             </div>
           ))}
         </div>
+
+        {planDays && visibleCount < planDays.length && (
+          <button
+            onClick={() => setVisibleCount((v) => v + 30)}
+            className="w-full text-center rounded-2xl px-4 py-3 mt-3 text-sm font-semibold focus:outline-none"
+            style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold, background: C.card, border: `1px solid ${C.border}` }}
+          >
+            Show 30 more days ({planDays.length - visibleCount} remaining)
+          </button>
+        )}
       </div>
     );
   }
