@@ -15,7 +15,8 @@
     "seed:plans": "tsx scripts/seed-plans.ts",
     "import:audio-timestamps": "tsx scripts/import-audio-verse-timestamps.ts",
     "seed:book-studies": "tsx scripts/seed-book-studies.ts",
-    "seed:mcheyne": "tsx scripts/seed-mcheyne.ts"
+    "seed:mcheyne": "tsx scripts/seed-mcheyne.ts",
+    "seed:seasonal": "tsx scripts/seed-seasonal-plans.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

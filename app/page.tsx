@@ -7,6 +7,7 @@ import { GoldButton } from "@/components/ui";
 import { ShareVerseButton } from "@/components/ShareVerseButton";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
+import { isInSeason, SeasonKey } from "@/lib/seasons";
 
 type Resume = {
   planId: string;
@@ -15,12 +16,27 @@ type Resume = {
   nextDay: { day_index: number; label: string; book: string; chapter: number };
 };
 
+type SeasonalPlan = { id: string; title: string; blurb: string; totalDays: number };
+
 export default function TodayPage() {
   const verse = todaysVerse();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [resume, setResume] = useState<Resume[]>([]);
   const [resumeLoading, setResumeLoading] = useState(true);
+  const [seasonalPlan, setSeasonalPlan] = useState<SeasonalPlan | null>(null);
+
+  // Seasonal plans (Advent, Holy Week) are always available under Plans, but
+  // are only promoted here — front and center — during their actual real-
+  // world date window, computed fresh each time rather than stored.
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { data } = await supabase.from("plans").select("id, title, blurb, total_days, season_key").not("season_key", "is", null);
+      const active = (data ?? []).find((p) => p.season_key && isInSeason(p.season_key as SeasonKey));
+      setSeasonalPlan(active ? { id: active.id, title: active.title, blurb: active.blurb, totalDays: active.total_days } : null);
+    })();
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -131,6 +147,30 @@ export default function TodayPage() {
           </ShareVerseButton>
         </div>
       </div>
+
+      {seasonalPlan && (
+        <div className="rounded-2xl px-5 py-4 mb-8" style={{ background: C.goldSoft, border: `1px solid ${C.gold}` }}>
+          <p
+            className="text-[11px] font-semibold mb-1"
+            style={{ fontFamily: "'Albert Sans', sans-serif", color: C.deep, letterSpacing: "0.06em", textTransform: "uppercase" }}
+          >
+            Happening now
+          </p>
+          <p style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: C.ink }} className="mb-1">
+            {seasonalPlan.title}
+          </p>
+          <p className="text-sm mb-3" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.inkSoft }}>
+            {seasonalPlan.blurb}
+          </p>
+          <button
+            onClick={() => router.push("/plans")}
+            className="text-sm font-semibold focus:outline-none"
+            style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}
+          >
+            Open the plan →
+          </button>
+        </div>
+      )}
 
       {resumeLoading ? (
         <p className="text-sm italic" style={{ color: C.inkSoft, fontFamily: "'Lora', serif" }}>

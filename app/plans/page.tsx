@@ -7,6 +7,7 @@ import { C, NT, OT } from "@/lib/constants";
 import { GoldButton, selectStyle } from "@/components/ui";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
+import { isInSeason, SeasonKey } from "@/lib/seasons";
 
 type Plan = {
   id: string;
@@ -14,6 +15,7 @@ type Plan = {
   blurb: string;
   category: string;
   total_days: number;
+  season_key: SeasonKey | null;
 };
 
 type ExtraPassage = { group: "family" | "secret"; display: string; book: string; chapter: number };
@@ -36,8 +38,9 @@ const CATEGORY_LABELS: Record<string, string> = {
   topical: "For Where You Are",
   "life-of-jesus": "The Life of Jesus",
   "whole-bible": "The Whole Story",
+  seasonal: "For This Season",
 };
-const CATEGORY_ORDER = ["starter", "topical", "life-of-jesus", "whole-bible"];
+const CATEGORY_ORDER = ["starter", "topical", "life-of-jesus", "whole-bible", "seasonal"];
 
 function slugify(book: string) {
   return book.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -66,7 +69,7 @@ export default function PlansPage() {
       const supabase = createClient();
       const { data: planRows } = await supabase
         .from("plans")
-        .select("id, title, blurb, category, total_days")
+        .select("id, title, blurb, category, total_days, season_key")
         .order("sort_order", { ascending: true });
       setPlans(planRows ?? []);
 
@@ -414,8 +417,18 @@ export default function PlansPage() {
                   className="w-full text-left rounded-2xl px-5 py-4 focus:outline-none"
                   style={{ background: C.card, border: `1px solid ${C.border}` }}
                 >
-                  <div className="flex items-baseline justify-between mb-1">
-                    <p style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: C.ink }}>{plan.title}</p>
+                  <div className="flex items-baseline justify-between mb-1 gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: C.ink }}>{plan.title}</p>
+                      {plan.season_key && isInSeason(plan.season_key) && (
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ fontFamily: "'Albert Sans', sans-serif", color: C.white, background: C.gold, letterSpacing: "0.04em", textTransform: "uppercase" }}
+                        >
+                          Happening now
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs flex-shrink-0 ml-3" style={{ fontFamily: "'Albert Sans', sans-serif", color: C.gold }}>
                       {plan.total_days} days{done > 0 ? ` · ${pct}%` : ""}
                     </p>
