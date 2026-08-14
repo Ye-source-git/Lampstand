@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Link from "next/link";
 import { C, FONTS_URL } from "@/lib/constants";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { Nav } from "@/components/Nav";
@@ -36,6 +37,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 each historic author&rsquo;s own voice and tradition, not Longtable&rsquo;s. The
                 Study Companion is an AI study tool — it describes texts, history, and the range of
                 traditional interpretations; it does not decide questions of faith for you.
+              </p>
+              <p className="text-[11px] mt-3" style={{ fontFamily: "'Albert Sans', sans-serif" }}>
+                <Link href="/privacy" style={{ color: C.inkSoft }}>
+                  Privacy Policy
+                </Link>
+                <span style={{ color: C.border }}> · </span>
+                <Link href="/terms" style={{ color: C.inkSoft }}>
+                  Terms of Service
+                </Link>
               </p>
             </footer>
           </div>
