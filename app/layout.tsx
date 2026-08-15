@@ -29,10 +29,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             metadata already emits the modern unprefixed one for current Safari. */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <link rel="stylesheet" href={FONTS_URL} />
-        {/* Applies a saved theme preference before first paint to avoid a flash of the wrong theme. */}
+        {/* Applies a saved theme preference before first paint to avoid a flash of the wrong theme.
+            Falls back to the old pre-rename storage key so existing users don't lose their choice. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("lampstand-theme");if(t==="dark"||t==="light"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("longtable-theme")||localStorage.getItem("lampstand-theme");if(t==="dark"||t==="light"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();`,
           }}
         />
       </head>

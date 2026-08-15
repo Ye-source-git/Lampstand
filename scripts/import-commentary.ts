@@ -4,7 +4,7 @@
 //     Source: ariseshinestudio/TSK on GitHub, packaged from JustVerses.com.
 //   - Easton's Bible Dictionary (M.G. Easton, 1897) → glossary, added *only* for terms
 //     not already covered by the curated glossary. The curated entries are kept as-is
-//     because they're written in Lampstand's neutral, multi-tradition voice — Easton's
+//     because they're written in Longtable's neutral, multi-tradition voice — Easton's
 //     is a single-perspective 19th-century reference work and shouldn't overwrite them
 //     on doctrinally sensitive terms; it's genuinely useful for the thousands of
 //     historical/geographical/biographical terms the curated list never touched.

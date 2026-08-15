@@ -24,7 +24,8 @@ export function ThemeToggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
     document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("lampstand-theme", next);
+    localStorage.setItem("longtable-theme", next);
+    localStorage.removeItem("lampstand-theme");
   }
 
   if (!theme) return <span className="w-6 h-6 inline-block" aria-hidden />;

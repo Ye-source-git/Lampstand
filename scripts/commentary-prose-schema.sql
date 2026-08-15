@@ -1,7 +1,7 @@
 -- Verse-by-verse classic commentary (Matthew Henry, Jamieson-Fausset-Brown, Barnes' —
 -- all public domain, extracted from CrossWire SWORD modules). Separate from
 -- book_notes/glossary since this is historical primary-source material in its
--- original authors' voices, not Lampstand's own neutral-voice content, and multiple
+-- original authors' voices, not Longtable's own neutral-voice content, and multiple
 -- commentaries can exist per verse, each attributed to its source.
 --
 -- Run once in the Supabase SQL editor.

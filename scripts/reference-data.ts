@@ -1,5 +1,5 @@
 // Reference library seed data. Original 27 book notes / 12 cross-ref chapters / 15 glossary
-// terms were ported verbatim from the prototype (lampstand-app.jsx); expanded to full 66-book
+// terms were ported verbatim from the prototype (longtable-app.jsx); expanded to full 66-book
 // coverage, a broader cross-reference set, and a deeper glossary after a content-coverage
 // review found most chapters and common topical questions had nothing to ground answers in.
 

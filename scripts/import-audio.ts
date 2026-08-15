@@ -1,6 +1,6 @@
 // Imports audio track metadata (not the audio itself — files stream directly from
 // archive.org) for the three complete, public-domain LibriVox recordings that match
-// Lampstand's translations: KJV, WEB, and ASV.
+// Longtable's translations: KJV, WEB, and ASV.
 //
 // Usage: npm run import:audio
 

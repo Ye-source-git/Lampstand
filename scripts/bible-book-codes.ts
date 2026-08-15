@@ -1,4 +1,4 @@
-// Maps source-dataset book identifiers to Lampstand's canonical book names
+// Maps source-dataset book identifiers to Longtable's canonical book names
 // (the same 66 names used in lib/constants.ts ALL_BOOKS).
 
 // USFX 3-letter codes (seven1m/open-bibles eng-web.usfx.xml) → canonical name.

@@ -1,9 +1,9 @@
-# Lampstand — Production Handoff
+# Longtable — Production Handoff
 
-This document briefs Claude Code (or any developer) on turning the Lampstand prototype
-(`lampstand-app.jsx`, in this repo) into a production web app.
+This document briefs Claude Code (or any developer) on turning the Longtable prototype
+(`longtable-app.jsx`, in this repo) into a production web app.
 
-## 1. What Lampstand is
+## 1. What Longtable is
 
 A **non-profit Bible study platform** whose mission is that everyone — of any denomination,
 any faith background, or none — feels welcome learning about the Bible.
@@ -170,7 +170,7 @@ ANTHROPIC_API_KEY=                # server only
 
 ## 6. Build checklist (suggested order)
 
-1. `npx create-next-app@latest lampstand` (TypeScript, Tailwind, App Router)
+1. `npx create-next-app@latest longtable` (TypeScript, Tailwind, App Router)
 2. Port the prototype components into pages; keep visual identity
 3. Supabase project + run schema above; wire auth (email magic link, Google)
 4. Import WEB/KJV/ASV verse datasets into `verses`; seed book_notes / cross_refs /
