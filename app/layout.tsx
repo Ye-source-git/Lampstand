@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Link from "next/link";
 import { C, FONTS_URL } from "@/lib/constants";
@@ -8,12 +8,26 @@ import { Nav } from "@/components/Nav";
 export const metadata: Metadata = {
   title: "Longtable — Bible study for everyone",
   description: "Scripture, open to everyone — whatever your tradition, wherever you’re starting.",
+  appleWebApp: {
+    title: "Longtable",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#EFF1EA" },
+    { media: "(prefers-color-scheme: dark)", color: "#1B211A" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full antialiased">
       <head>
+        {/* Legacy iOS versions only honor the apple-prefixed tag; Next's `appleWebApp`
+            metadata already emits the modern unprefixed one for current Safari. */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <link rel="stylesheet" href={FONTS_URL} />
         {/* Applies a saved theme preference before first paint to avoid a flash of the wrong theme. */}
         <script
