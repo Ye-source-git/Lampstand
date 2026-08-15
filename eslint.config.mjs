@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Prototype reference file kept unmodified alongside the app — not part of the build.
     "lampstand-app.jsx",
+    // Local Supabase CLI runtime state (already in supabase/.gitignore) — generated,
+    // not our code.
+    "supabase/.temp/**",
+    "supabase/.branches/**",
   ]),
 ]);
 
